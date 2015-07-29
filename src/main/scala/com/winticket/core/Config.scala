@@ -1,4 +1,4 @@
-package io.github.yeghishe
+package com.winticket.core
 
 import com.typesafe.config.ConfigFactory
 

@@ -1,4 +1,4 @@
-package io.github.yeghishe
+package com.winticket.core
 
 import spray.json.DefaultJsonProtocol
 
