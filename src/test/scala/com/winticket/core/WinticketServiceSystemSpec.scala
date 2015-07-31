@@ -19,9 +19,29 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec {
   override def httpConf = super.httpConf.header("Client", "gatling.io")
 
   spec {
-    println("XXX Starting Test XXX: ")
     http("gruenfels/2015/49")
       .get("/gruenfels/2015/49/paul.bernet@gmail.com")
+      .check(status.is(200))
+      .check(xpath("/html/body/status/text()").is("OK"))
+  }
+
+  spec {
+    http("gruenfels/2015/49")
+      .get("/gruenfels/2015/49/paul.bernet@gmail.com")
+      .check(status.is(200))
+      .check(xpath("/html/body/status/text()").is("OK"))
+  }
+
+  spec {
+    http("gruenfels/2015/49")
+      .get("/gruenfels/2015/49/paul.bernet@bluewin.ch")
+      .check(status.is(200))
+      .check(xpath("/html/body/status/text()").is("OK"))
+  }
+
+  spec {
+    http("gruenfels/2015/49")
+      .get("/gruenfels/2015/49/paul.bernet@earthling.net")
       .check(status.is(200))
       .check(xpath("/html/body/status/text()").is("OK"))
   }
