@@ -16,7 +16,7 @@ object WinticketMicroserviceMain extends App with Config with WinticketService {
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   //to clean db execute from terminal: rm -rf target/winticket/journal
-  //after a re-start these commands are re-sent, but since the actor is in the recieveCommands state are not effective
+  //after a re-start these commands are re-sent, but since the actor is in the state "recieveCommands" the commands are not effective
   //TODO Create Admin-Rest Interface for creation
   val drawingEventDateGMT49 = DateTime(2015, 9, 12, 20, 0, 0)
   val linkToTicket49 = "http://tkpk.ch/twc/ZmN2AakhLajkZQN4BGy8"
