@@ -46,14 +46,15 @@ object DrawingActor {
 }
 
 /**
- *  TODO States  receiveCreate (aka preDrawing) -> receiveCommands (aka whileDrawing) -> postDrawing
+ *  DrawingActor contains the business logic in order to draw a winner for an event
+ *  States:  receiveCreate (aka preDrawing) -> receiveCommands (aka whileDrawing) -> postDrawing
  *
- * @param actorID
+ * @param actorID the tennantID
  */
 
 class DrawingActor(actorID: String) extends PersistentActor with ActorLogging with Config {
 
-  //Bootstrap for sheduled execution of DrawWinner
+  //Bootstrap for scheduled execution of DrawWinner
   import context.dispatcher
   //the initial shot is set to 1 minute, so that some testdata can be brought into the system with sbt test
   val draw = context.system.scheduler.schedule(1 minute, 1 hour, self, DrawWinner)
@@ -115,6 +116,10 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
           sender() ! evt
         })
 
+        val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
+        val drawingDate = state.get.drawingEventDate - drawingDateDelta
+        val confirmationMessage = EMailMessage("Thank you for participating for event: " + state.get.drawingEventName, email, state.get.tennantEMail, Some("You participated - drawing will be at: " + drawingDate), None, smtpConfig, 1 minute, 3)
+        EMailService.send(confirmationMessage)
       } else {
         log.debug("Subscribe for Event: " + eventID + " is ignored by: " + this.persistenceId)
       }
@@ -125,17 +130,19 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       log.info("Scheduled command DrawWinner recieved")
       val eventDate = state.get.drawingEventDate
       val eventID = state.get.drawingEventID
-      //TODO This test is not nessecary anymore with the new state postDrawing, but remains here for saftey
+
+      val drawingDate = state.get.drawingEventDate - drawingDateDelta
+
+      //This test is not necessary anymore with the new state "postDrawing", but remains here for safety
       if (isDrawingExecuted) {
         log.info("Drawing for eventID: " + eventID + " and eventDate: " + eventDate + " is already executed")
       } else {
-        //TODO adjust: the drawing is 3 days before the event
-        if ((eventDate - 1000L * 3600L * 24L * 60L) <= DateTime.now) {
+        if (drawingDate <= DateTime.now) {
           log.info("Execute drawing for eventID: " + eventID + " and eventDate: " + eventDate)
 
           //Prevent abuse: ignore re-subscriptions (= the size of the list of subscriptions can be anything from 1 to n)
           val subscribtionsByEMail = state.get.subscriptions.groupBy(_.email)
-          if (subscribtionsByEMail.size > 0) {
+          if (subscribtionsByEMail.nonEmpty) {
 
             val theLUCKYNumber = Random.nextInt(subscribtionsByEMail.size)
             val theWinnerEMail = subscribtionsByEMail.keySet.toList(theLUCKYNumber)
@@ -185,5 +192,8 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
   // Initially we expect a CreateDrawing command
   val receiveCommand: Receive = receiveCreate
+
+  //TODO adjust: the drawing is 3 days before the event, for testing this is set 60 days before...
+  val drawingDateDelta: Long = 1000L * 3600L * 24L * 60L
 }
 
