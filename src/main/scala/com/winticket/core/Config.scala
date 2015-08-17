@@ -26,4 +26,6 @@ trait Config {
   val telizePort = telizeConfig.getInt("telizePort")
 
   val isCheck4SwissIPEnabled = securityConfig.getBoolean("isCheck4SwissIPEnabled")
+  val adminUsername = securityConfig.getString("adminUsername")
+  val adminPassword = securityConfig.getString("adminPassword")
 }

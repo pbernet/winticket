@@ -1,14 +1,14 @@
 package com.winticket.server
 
+import akka.actor.{ActorLogging, Props}
 import akka.http.scaladsl.model.DateTime
+import akka.persistence.{PersistentActor, SnapshotOffer}
 import com.winticket.core.Config
-import com.winticket.mail.{ SmtpConfig, EMailMessage, EMailService }
-import scala.concurrent.duration.DurationInt
-import akka.actor.{ Props, ActorLogging }
-import akka.persistence.{ SnapshotOffer, PersistentActor }
+import com.winticket.mail.{EMailMessage, EMailService, SmtpConfig}
 import com.winticket.server.DrawingActor._
-import com.winticket.server.DrawingProtocol.{ DrawWinnerExecuted, Subscribed, DrawingCreated, DrawingEvent }
+import com.winticket.server.DrawingProtocol.{DrawWinnerExecuted, DrawingCreated, DrawingEvent, Subscribed}
 
+import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
 object DrawingActor {
@@ -127,7 +127,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     }
 
     case DrawWinner => {
-      log.info("Scheduled command DrawWinner recieved")
+      log.info("(Scheduled) command DrawWinner recieved")
       val eventDate = state.get.drawingEventDate
       val eventID = state.get.drawingEventID
 

@@ -2,25 +2,28 @@ package com.winticket.server
 
 import java.io.IOException
 
-import akka.actor.{ ActorRef, ActorSystem }
+import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
-import akka.stream.scaladsl.{ Flow, Sink, Source }
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.winticket.core.BaseService
-import com.winticket.server.DrawingActor.{ CreateDrawing, GetSubscribtions, GetWinnerEMail, Subscribe }
+import com.winticket.server.DrawingActor._
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{Await, Future}
 
 case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
+
+case class UserPass(username: String, password: String)
 
 trait WinticketService extends BaseService {
 
@@ -43,7 +46,7 @@ trait WinticketService extends BaseService {
     aListOfDrawingActors += drawingActor
   }
 
-  def logSubscriptions: Unit = {
+  def logSubscriptions(): Unit = {
     implicit val timeout = Timeout(5 seconds)
     aListOfDrawingActors.foreach { drawingActor =>
       val subscriptionsFuture = drawingActor ? GetSubscribtions
@@ -54,7 +57,7 @@ trait WinticketService extends BaseService {
     }
   }
 
-  def logWinners: Unit = {
+  def logWinners(): Unit = {
     implicit val timeout = Timeout(5 seconds)
     aListOfDrawingActors.foreach { drawingActor =>
       val winnerFuture = drawingActor ? GetWinnerEMail
@@ -114,6 +117,21 @@ trait WinticketService extends BaseService {
     }
   }
 
+  def basicAuthenticator: Authenticator[UserPass] = {
+    case missing@Missing => {
+      log.info("Received UserCredentials is: " + missing + " challenge the browser to ask the user again...")
+      None
+    }
+    case provided@Provided(_) => {
+      log.info("Received UserCredentials is: " + provided)
+      if (provided.username == adminUsername && provided.verifySecret(adminPassword)) {
+        Some(UserPass("admin", ""))
+      } else {
+        None
+      }
+    }
+  }
+
   val routes = logRequestResult("winticket") {
     //TODO Make tennant a variable in Config
     //TODO Make param email accessible via "parameter(s)"
@@ -156,26 +174,26 @@ trait WinticketService extends BaseService {
         }
       }
 
-    } ~
-      //TODO remove since this is for testing
-      pathPrefix("xx") {
+    } ~ pathPrefix("admin" / "cmd") {
+      authenticateBasic(realm = "admin area", basicAuthenticator) { user =>
 
-        (get & path(Segment)) { value =>
+        log.info("User is: " + user.username)
 
-          //Additional Test
+        (get & path(Segment)) { command =>
+          if (command == "startDrawings") aListOfDrawingActors.foreach(drawingActor => drawingActor ! DrawWinner)
+          //Debug response
           complete {
-            //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
             <html>
               <body>
-                Hello world! IP:
-                { value }
+                Command is:
+                {command}
+                User is:
+                {user.username}
               </body>
             </html>
           }
         }
-
-      } ~ extractClientIP { ip =>
-        complete("Client's ip is " + ip.toOption.map(_.getHostAddress).getOrElse("unknown"))
       }
+    }
   }
 }

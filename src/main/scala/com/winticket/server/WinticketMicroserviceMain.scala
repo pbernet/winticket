@@ -1,6 +1,6 @@
 package com.winticket.server
 
-import akka.event.{ Logging, LoggingAdapter }
+import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.DateTime
 import akka.stream.ActorMaterializer
@@ -31,8 +31,8 @@ object WinticketMicroserviceMain extends App with Config with WinticketService {
   createDrawingGruenfels(create50)
 
   //to see the amount of data on startup
-  logSubscriptions
-  logWinners
+  logSubscriptions()
+  logWinners()
 
   Http().bindAndHandle(routes, httpInterface, httpPort)
 }
