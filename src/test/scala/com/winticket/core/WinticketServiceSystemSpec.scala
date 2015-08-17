@@ -1,5 +1,7 @@
 package com.winticket.core
 
+import java.net.InetAddress
+
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.http.funspec.GatlingHttpFunSpec
@@ -16,7 +18,14 @@ import io.gatling.core.check.extractor.xpath._
 class WinticketServiceSystemSpec extends GatlingHttpFunSpec {
 
   val baseURL = "http://localhost:9000"
-  override def httpConf = super.httpConf.header("Client", "gatling.io")
+  override def httpConf = {
+    super.httpConf.header("Custom-Header", "gatling.io")
+    super.httpConf.userAgentHeader("gatling.io")
+    //bind the sockets from a specific local address instead of the default one (127.0.0.1)
+    //TODO This works only for pber mac
+    val localAddress = InetAddress.getByName("192.168.1.51")
+    super.httpConf.localAddress(localAddress: InetAddress)
+  }
 
   spec {
     http("gruenfels/2015/49")

@@ -1,26 +1,38 @@
 package com.winticket.server
 
+import java.io.IOException
+
 import akka.actor.{ ActorRef, ActorSystem }
-import akka.event.{ Logging, LoggingAdapter }
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
-import akka.http.scaladsl.model.DateTime
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.{ HttpRequest, HttpResponse }
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.util.Timeout
 import com.winticket.core.BaseService
-import com.winticket.server.DrawingActor.{ GetWinnerEMail, CreateDrawing, GetSubscribtions, Subscribe }
-import com.winticket.server.DrawingProtocol.DrawWinnerExecuted
+import com.winticket.server.DrawingActor.{ CreateDrawing, GetSubscribtions, GetWinnerEMail, Subscribe }
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{ ExecutionContext, Await }
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ Await, Future }
+
+case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
 
 trait WinticketService extends BaseService {
 
   protected implicit val system = ActorSystem("winticket")
 
   protected var aListOfDrawingActors = ListBuffer[ActorRef]()
+
+  lazy val telizeConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
+    //Use Connection-Level Client-Side API
+    Http().outgoingConnection(telizeHost, telizePort)
+
+  def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
 
   //TODO generalize for other tennants via passing the tennantID
   def createDrawingGruenfels(create: CreateDrawing): Unit = {
@@ -52,6 +64,56 @@ trait WinticketService extends BaseService {
     }
   }
 
+  def isIPValid(clientIP: String): Boolean = {
+
+    if (isCheck4SwissIPEnabled) {
+      log.info("Client IP is: " + clientIP)
+      if (clientIP == "127.0.0.1" || clientIP == "localhost") {
+        true
+      } else {
+        val responseFuture = telizeRequest(RequestBuilding.Get(s"/geoip/$clientIP")).flatMap { response =>
+          response.status match {
+            case OK => {
+              Unmarshal(response.entity).to[IpInfo].map {
+                ipinfo =>
+                  {
+                    val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
+                    if (countryString == "Switzerland") {
+                      log.info("Request is from Switzerland. Proceed")
+                      Future.successful(true)
+                    } else {
+                      log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
+                      Future.successful(false)
+                    }
+                  }
+              }
+              Future.successful(false)
+
+            }
+            case BadRequest => Future.successful(false)
+            case _ => Unmarshal(response.entity).to[String].flatMap { entity =>
+              val error = s"The request to telize.com failed with status code ${response.status} and entity $entity"
+              log.error(error)
+              Future.failed(new IOException(error))
+            }
+          }
+        }
+        //Use callbacks instead of
+        //Await.result(responseFuture, 10 seconds)
+        responseFuture onSuccess {
+          case result => result
+        }
+
+        responseFuture onFailure {
+          case t => log.error("An error has occured: " + t.getMessage)
+        }
+        false
+      }
+    } else {
+      true
+    }
+  }
+
   val routes = logRequestResult("winticket") {
     //TODO Make tennant a variable in Config
     //TODO Make param email accessible via "parameter(s)"
@@ -59,28 +121,41 @@ trait WinticketService extends BaseService {
     pathPrefix(tennantID / IntNumber / IntNumber) { (tennantYear, drawingEventID) =>
       (get & path(Segment)) { subscriptionEMail =>
         extractClientIP { clientIP =>
-          //TODO Test IP for correctness
-          aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIP.toOption.map(_.getHostAddress).getOrElse("unknown")))
+          val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
+          if (isIPValid(clientIPString)) {
 
-          complete {
-            //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
-            <html>
-              <body>
-                <status>OK</status>
-                <tennantYear>
-                  { tennantYear }
-                </tennantYear>
-                <drawingEventID>
-                  { drawingEventID }
-                </drawingEventID>
-                <subscriptionEMail>
-                  { subscriptionEMail }
-                </subscriptionEMail>
-              </body>
-            </html>
+            aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString))
+
+            complete {
+              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
+              <html>
+                <body>
+                  <status>OK</status>
+                  <tennantYear>
+                    { tennantYear }
+                  </tennantYear>
+                  <drawingEventID>
+                    { drawingEventID }
+                  </drawingEventID>
+                  <subscriptionEMail>
+                    { subscriptionEMail }
+                  </subscriptionEMail>
+                </body>
+              </html>
+            }
+          } else {
+            complete {
+              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
+              <html>
+                <body>
+                  <status>NOK - IP Check failed</status>
+                </body>
+              </html>
+            }
           }
         }
       }
+
     } ~
       //TODO remove since this is for testing
       pathPrefix("xx") {
