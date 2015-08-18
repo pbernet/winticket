@@ -193,7 +193,6 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
   // Initially we expect a CreateDrawing command
   val receiveCommand: Receive = receiveCreate
 
-  //TODO adjust: the drawing is 3 days before the event, for testing this is set 60 days before...
-  val drawingDateDelta: Long = 1000L * 3600L * 24L * 60L
+  val drawingDateDelta: Long = 1000L * 3600L * 24L * drawingDateDeltaDaysBackwards
 }
 

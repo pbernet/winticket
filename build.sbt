@@ -14,6 +14,7 @@ libraryDependencies ++= {
   val akkaStreamV      = "1.0"
   val akkaV            = "2.3.12"  //2.4-SNAPSHOT seems to work only for Java 1.8
   val apacheMailV      = "1.2"
+  val productCollV = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
   val scalaMockV       = "3.2.2"
   val scalazScalaTestV = "0.2.3"
@@ -30,7 +31,11 @@ libraryDependencies ++= {
 
     //needed for XHTML in HTTP Response
     "com.typesafe.akka" %% "akka-http-xml-experimental"           % akkaStreamV,
+
     "org.apache.commons" % "commons-email"                        % apacheMailV,
+    "com.github.marklister" %% "product-collections" % productCollV,
+
+
     "org.scalatest"     %% "scalatest"                            % scalaTestV       % "it,test",
     "org.scalamock"     %% "scalamock-scalatest-support"          % scalaMockV       % "it,test",
     "org.scalaz"        %% "scalaz-scalacheck-binding"            % scalazV          % "it,test",

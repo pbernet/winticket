@@ -37,12 +37,11 @@ trait WinticketService extends BaseService {
 
   def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
 
-  //TODO generalize for other tennants via passing the tennantID
-  def createDrawingGruenfels(create: CreateDrawing): Unit = {
-    val uniqueActorRef = "DrawingActorGruenfels" + create.drawingEventID
+  def createDrawing(data: CreateDrawing): Unit = {
+    val uniqueActorRef = "DrawingActor-" + data.tennantID + "-" + data.drawingEventID
     val drawingActor = system.actorOf(DrawingActor.props(uniqueActorRef), uniqueActorRef)
-    drawingActor ! create
-    log.info(s"------- DrawingActor -----> $create")
+    drawingActor ! data
+    log.info(s"------- DrawingActor -----> $data")
     aListOfDrawingActors += drawingActor
   }
 
@@ -181,6 +180,7 @@ trait WinticketService extends BaseService {
 
         (get & path(Segment)) { command =>
           if (command == "startDrawings") aListOfDrawingActors.foreach(drawingActor => drawingActor ! DrawWinner)
+
           //Debug response
           complete {
             <html>

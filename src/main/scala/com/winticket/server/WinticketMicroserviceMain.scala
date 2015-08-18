@@ -4,10 +4,21 @@ import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.DateTime
 import akka.stream.ActorMaterializer
+import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.winticket.core.Config
 import com.winticket.server.DrawingActor.CreateDrawing
 
 import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
+
+/**
+ * Load the event data from the resource file and start the http service
+ *
+ * To clean db execute from terminal: rm -rf target/winticket/journal
+ *
+ * After a re-start the commands CreateDrawing are re-sent to the DrawingActor,
+ * but since the DrawingActor is in the state "recieveCommands" the commands are not effective
+ */
 
 object WinticketMicroserviceMain extends App with Config with WinticketService {
 
@@ -15,20 +26,20 @@ object WinticketMicroserviceMain extends App with Config with WinticketService {
   override protected val log: LoggingAdapter = Logging(system, getClass)
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  //to clean db execute from terminal: rm -rf target/winticket/journal
-  //after a re-start these commands are re-sent, but since the actor is in the state "recieveCommands" the commands are not effective
-  //TODO Create Admin-Rest Interface for creation
-  val drawingEventDateGMT49 = DateTime(2015, 9, 12, 20, 0, 0)
-  val linkToTicket49 = "http://tkpk.ch/twc/ZmN2AakhLajkZQN4BGy8"
-  val securityCodeForTicket49 = "8ded"
-  val create49 = CreateDrawing("gruenfels", 2015, "info@gruenfels.ch", "49", "Schertenleib & Jegerlehner", drawingEventDateGMT49, linkToTicket49, securityCodeForTicket49)
-  createDrawingGruenfels(create49)
+  //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
+  implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
 
-  val drawingEventDateGMT50 = DateTime(2015, 10, 17, 20, 0, 0)
-  val linkToTicket50 = "http://tkpk.ch/twc/ZmN2AakhLajkZQN4BGy8"
-  val securityCodeForTicket50 = "8ded"
-  val create50 = CreateDrawing("gruenfels", 2015, "info@gruenfels.ch", "50", "Christopf Stiefel‘s Inner Language Trio", drawingEventDateGMT50, linkToTicket50, securityCodeForTicket50)
-  createDrawingGruenfels(create50)
+  class TryIterator[T](it: Iterator[T]) extends Iterator[Try[T]] {
+    def next = Try(it.next)
+
+    def hasNext = it.hasNext
+  }
+
+  val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(new java.io.FileReader(eventsFilePath), hasHeader = true)).toList
+  aListOfDrawingEventsTry.foreach {
+    case Success(content) => createDrawing(content)
+    case Failure(f) => log.error(f.getMessage)
+  }
 
   //to see the amount of data on startup
   logSubscriptions()
