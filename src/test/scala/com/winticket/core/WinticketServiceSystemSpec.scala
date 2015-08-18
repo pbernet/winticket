@@ -89,6 +89,14 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
       .check(xpath("/html/body/status/text()").is("OK"))
   }
 
+  //subscribe with default account for 2nd tennant
+  spec {
+    http("mandant2/2015/1")
+      .get("/mandant2/2015/1/" + mailAccount1)
+      .check(status.is(200))
+      .check(xpath("/html/body/status/text()").is("OK"))
+  }
+
 }
 
 object WinticketServiceSystemSpec {

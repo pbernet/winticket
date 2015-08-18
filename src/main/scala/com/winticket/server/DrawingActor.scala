@@ -19,7 +19,7 @@ object DrawingActor {
 
   case class CreateDrawing(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, linkToTicket: String, securityCodeForTicket: String) extends Command
 
-  case class Subscribe(year: String, eventID: String, email: String, ip: String) extends Command
+  case class Subscribe(tennantID: String, year: String, eventID: String, email: String, ip: String) extends Command
 
   sealed trait Query
 
@@ -93,7 +93,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       state = Some(snapshot)
       context.become(receiveCommands)
     }
-    case a @ _ => log.warning("Received unknown message for state receiveRecover - do nothing. Message is: " + a)
+    case a@_ => log.warning(s"Received unknown message for state receiveRecover - do nothing. Message is: $a")
   }
 
   val receiveCreate: Receive = {
@@ -103,15 +103,15 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         setInitialState(evt)
       }
     }
-    case a @ _ => log.warning("Received unknown message for state receiveCreate - do nothing. Message is: " + a)
+    case a@_ => log.warning(s"Received unknown message for state receiveCreate - do nothing. Message is: $a")
   }
 
   val receiveCommands: Receive = {
-    case Subscribe(year, eventID, email, ip) => {
+    case Subscribe(tennantID, year, eventID, email, ip) => {
       //only matching events are accepted
-      if (state.get.drawingEventID == eventID) {
+      if (state.get.drawingEventID == eventID && state.get.tennantID == tennantID && state.get.tennantYear.toString == year) {
         persist(Subscribed(year, eventID, email, ip, DateTime.now))(evt => {
-          log.info(s"Subscribed $email for event with ID $eventID")
+          log.info(s"Subscribed $email for year: $year and event with ID: $eventID")
           updateState(evt)
           sender() ! evt
         })
@@ -121,7 +121,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         val confirmationMessage = EMailMessage("Thank you for participating for event: " + state.get.drawingEventName, email, state.get.tennantEMail, Some("You participated - drawing will be at: " + drawingDate), None, smtpConfig, 1 minute, 3)
         EMailService.send(confirmationMessage)
       } else {
-        log.debug("Subscribe for Event: " + eventID + " is ignored by: " + this.persistenceId)
+        log.debug(s"Subscribe for event: $eventID is ignored by: $persistenceId")
       }
 
     }
@@ -135,10 +135,10 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
       //This test is not necessary anymore with the new state "postDrawing", but remains here for safety
       if (isDrawingExecuted) {
-        log.info("Drawing for eventID: " + eventID + " and eventDate: " + eventDate + " is already executed")
+        log.info(s"Drawing for eventID: $eventID and eventDate: $eventDate is already executed")
       } else {
         if (drawingDate <= DateTime.now) {
-          log.info("Execute drawing for eventID: " + eventID + " and eventDate: " + eventDate)
+          log.info(s"Execute drawing for eventID: $eventID and eventDate: $eventDate")
 
           //Prevent abuse: ignore re-subscriptions (= the size of the list of subscriptions can be anything from 1 to n)
           val subscribtionsByEMail = state.get.subscriptions.groupBy(_.email)
@@ -146,7 +146,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
             val theLUCKYNumber = Random.nextInt(subscribtionsByEMail.size)
             val theWinnerEMail = subscribtionsByEMail.keySet.toList(theLUCKYNumber)
-            log.info("The Winner is: " + theWinnerEMail + " with subscriptions: " + subscribtionsByEMail.get(theWinnerEMail).mkString)
+            log.info(s"The Winner is: $theWinnerEMail with subscriptions: " + subscribtionsByEMail.get(theWinnerEMail).mkString)
 
             persist(DrawWinnerExecuted(theWinnerEMail))(evt => {
               updateState(evt)
@@ -156,15 +156,15 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
             //TODO winnerMessage cc to Organizer, HTML-Content with link to PDF-Docs and access code
             val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
-            val winnerMessage = EMailMessage("Subject: ", theWinnerEMail, state.get.tennantEMail, Some("YOU WON - Drawing was at: " + DateTime.now), None, smtpConfig, 1 minute, 3)
+            val winnerMessage = EMailMessage("Sie haben gewonnen: 2 Tickets für: " + state.get.drawingEventName, theWinnerEMail, state.get.tennantEMail, Some("EMail: " + state.get.tennantEMail + " - Drawing was at: " + DateTime.now), None, smtpConfig, 1 minute, 3)
             EMailService.send(winnerMessage)
           } else {
-            log.info("Drawing for eventID: " + eventID + " and eventDate: " + eventDate + " has NO subscriptions, that means no winner can be drawn...")
+            log.info(s"Drawing for eventID: $eventID and eventDate: $eventDate has NO subscriptions, that means no winner can be drawn...")
             updateState(DrawWinnerExecuted("N/A"))
             context.become(postDrawing)
           }
         } else {
-          log.info("Drawing for eventID: " + eventID + " and eventDate: " + eventDate + " is not yet due")
+          log.info(s"Drawing for eventID: $eventID and eventDate: $eventDate is not yet due")
         }
       }
     }
@@ -176,7 +176,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     case GetWinnerEMail => {
       sender() ! state.get.drawingWinnerEMail
     }
-    case a @ _ => log.warning("Received unknown message for state receiveCommands - do nothing. Message is: " + a)
+    case a@_ => log.warning(s"Received unknown message for state receiveCommands - do nothing. Message is: $a")
   }
 
   val postDrawing: Receive = {
@@ -187,7 +187,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     case GetWinnerEMail => {
       sender() ! state.get.drawingWinnerEMail
     }
-    case a @ _ => log.warning("Received unknown message for state postDrawing - do nothing. Message is: " + a)
+    case a@_ => log.warning(s"Received unknown message for state postDrawing - do nothing. Message is: $a")
   }
 
   // Initially we expect a CreateDrawing command

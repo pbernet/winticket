@@ -9,6 +9,7 @@ import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
@@ -17,6 +18,7 @@ import akka.util.Timeout
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -132,16 +134,21 @@ trait WinticketService extends BaseService {
   }
 
   val routes = logRequestResult("winticket") {
-    //TODO Make tennant a variable in Config
+
     //TODO Make param email accessible via "parameter(s)"
     //TODO Param Extract tennantYear and drawingEventID as String
-    pathPrefix(tennantID / IntNumber / IntNumber) { (tennantYear, drawingEventID) =>
+
+    //A Map is required for the route. Convert the Java based listOfTennants...
+    val tennantMap: Map[String, String] = listOfTennants.asScala.toList.map { case k => k -> k }.toMap
+
+    pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
+
       (get & path(Segment)) { subscriptionEMail =>
         extractClientIP { clientIP =>
           val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
           if (isIPValid(clientIPString)) {
 
-            aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString))
+            aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString))
 
             complete {
               //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html

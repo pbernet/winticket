@@ -5,7 +5,6 @@ import com.typesafe.config.ConfigFactory
 trait Config {
   private val config = ConfigFactory.load()
   private val httpConfig = config.getConfig("http")
-  private val tennantConfig = config.getConfig("tennant")
   private val appConfig = config.getConfig("app")
   private val smtpConfig = config.getConfig("smtp")
   private val telizeConfig = config.getConfig("services")
@@ -16,9 +15,8 @@ trait Config {
   val httpInterface = httpConfig.getString("interface")
   val httpPort = httpConfig.getInt("port")
 
-  val tennantID = tennantConfig.getString("tennantID")
-
   val drawingDateDeltaDaysBackwards = appConfig.getLong("drawingDateDeltaDaysBackwards")
+  val listOfTennants = appConfig.getStringList("tennantList")
 
   val tls = smtpConfig.getBoolean("tls")
   val ssl = smtpConfig.getBoolean("ssl")
