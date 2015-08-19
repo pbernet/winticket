@@ -5,7 +5,7 @@ organization  := "com.winticket"
 version       := "0.0.1"
 scalaVersion  := "2.11.7"
 scalacOptions := Seq(
-  "-encoding", "UTF-8", "-target:jvm-1.7", "-deprecation",
+  "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
   "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
 
 
@@ -71,5 +71,7 @@ initialCommands := """|import scalaz._
                      |import scala.concurrent._
                      |import scala.concurrent.duration._""".stripMargin
 
+// set the main class for 'sbt run'. Does not work yet. There seems to be a conflict with the GatlingPlugin
+mainClass in(Compile, run) := Some("com.winticket.server.WinticketMicroserviceMain")
 
 fork in run := true
