@@ -26,7 +26,7 @@ object WinticketMicroserviceMain extends Config with WinticketService {
   override protected val log: LoggingAdapter = Logging(system, getClass)
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  private val jvmArg = """-D(\S+)=(\S+)""".r
+
 
   //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
   implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
@@ -38,12 +38,14 @@ object WinticketMicroserviceMain extends Config with WinticketService {
   }
 
   def main(args: Array[String]): Unit = {
+    //Unfortunately the System Property -Dconfig.resource=/production.conf can not be initialized via JVM Arg, because the Config trait is initialized before this...
+    val jvmArg = """-D(\S+)=(\S+)""".r
     for (jvmArg(name, value) <- args) System.setProperty(name, value)
 
     val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(new java.io.FileReader(eventsFilePath), hasHeader = true)).toList
     aListOfDrawingEventsTry.foreach {
       case Success(content) => createDrawing(content)
-      case Failure(f) => log.error(f.getMessage)
+      case Failure(f)       => log.error(f.getMessage)
     }
 
     //to see the amount of data on startup
