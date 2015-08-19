@@ -20,30 +20,36 @@ import scala.util.{Failure, Success, Try}
  * but since the DrawingActor is in the state "recieveCommands" the commands are not effective
  */
 
-object WinticketMicroserviceMain extends App with Config with WinticketService {
+object WinticketMicroserviceMain extends Config with WinticketService {
 
   override protected implicit val executor: ExecutionContext = system.dispatcher
   override protected val log: LoggingAdapter = Logging(system, getClass)
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
+  private val jvmArg = """-D(\S+)=(\S+)""".r
+
   //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
   implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
 
   class TryIterator[T](it: Iterator[T]) extends Iterator[Try[T]] {
-    def next = Try(it.next)
+    def next = Try(it.next())
 
     def hasNext = it.hasNext
   }
 
-  val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(new java.io.FileReader(eventsFilePath), hasHeader = true)).toList
-  aListOfDrawingEventsTry.foreach {
-    case Success(content) => createDrawing(content)
-    case Failure(f) => log.error(f.getMessage)
+  def main(args: Array[String]): Unit = {
+    for (jvmArg(name, value) <- args) System.setProperty(name, value)
+
+    val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(new java.io.FileReader(eventsFilePath), hasHeader = true)).toList
+    aListOfDrawingEventsTry.foreach {
+      case Success(content) => createDrawing(content)
+      case Failure(f) => log.error(f.getMessage)
+    }
+
+    //to see the amount of data on startup
+    logSubscriptions()
+    logWinners()
+
+    Http().bindAndHandle(routes, httpInterface, httpPort)
   }
-
-  //to see the amount of data on startup
-  logSubscriptions()
-  logWinners()
-
-  Http().bindAndHandle(routes, httpInterface, httpPort)
 }
