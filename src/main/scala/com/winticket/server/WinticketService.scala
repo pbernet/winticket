@@ -102,14 +102,12 @@ trait WinticketService extends BaseService {
             }
           }
         }
-        //Use callbacks instead of
-        //Await.result(responseFuture, 10 seconds)
-        responseFuture onSuccess {
+
+        responseFuture.onSuccess {
           case result => result
         }
-
-        responseFuture onFailure {
-          case t => log.error("An error has occured: " + t.getMessage)
+        responseFuture.onFailure {
+          case t => log.error("An error has occurred: " + t.getMessage)
         }
         false
       }
@@ -120,11 +118,11 @@ trait WinticketService extends BaseService {
 
   def basicAuthenticator: Authenticator[UserPass] = {
     case missing@Missing => {
-      log.info("Received UserCredentials is: " + missing + " challenge the browser to ask the user again...")
+      log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
       None
     }
     case provided@Provided(_) => {
-      log.info("Received UserCredentials is: " + provided)
+      log.info(s"Received UserCredentials is: $provided")
       if (provided.username == adminUsername && provided.verifySecret(adminPassword)) {
         Some(UserPass("admin", ""))
       } else {
@@ -201,6 +199,6 @@ trait WinticketService extends BaseService {
           }
         }
       }
-    }
+    } ~ path("")(getFromResource("web/index.html")) ~ getFromResourceDirectory("web")
   }
 }

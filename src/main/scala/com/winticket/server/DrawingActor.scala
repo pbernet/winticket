@@ -46,7 +46,11 @@ object DrawingActor {
 }
 
 /**
- *  DrawingActor contains the business logic in order to draw a winner for an event
+ * There is a DrawingActor for each event, which contains the business logic to:
+ * - Create a event
+ * - Accept subscriptions for the event
+ * - Draw a winner for the event
+ *
  *  States:  receiveCreate (aka preDrawing) -> receiveCommands (aka whileDrawing) -> postDrawing
  *
  * @param actorID the tennantID
@@ -55,9 +59,10 @@ object DrawingActor {
 class DrawingActor(actorID: String) extends PersistentActor with ActorLogging with Config {
 
   //Bootstrap for scheduled execution of DrawWinner
+  //The initial shot is delayed, so that some testdata can be brought into the system with sbt test
   import context.dispatcher
-  //the initial shot is set to 1 minute, so that some testdata can be brought into the system with sbt test
-  val draw = context.system.scheduler.schedule(1 minute, 1 hour, self, DrawWinner)
+
+  val draw = context.system.scheduler.schedule(5 minute, 1 hour, self, DrawWinner)
 
   override def postStop() = draw.cancel()
 
