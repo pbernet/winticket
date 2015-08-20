@@ -5,14 +5,13 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.DateTime
 import akka.stream.ActorMaterializer
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
-import com.winticket.core.Config
 import com.winticket.server.DrawingActor.CreateDrawing
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 /**
- * Load the event data from the resource file and start the http service
+ * Load the events from the resource file and start the http service
  *
  * To clean db execute from terminal: rm -rf target/winticket/journal
  *
@@ -20,13 +19,11 @@ import scala.util.{Failure, Success, Try}
  * but since the DrawingActor is in the state "recieveCommands" the commands are not effective
  */
 
-object WinticketMicroserviceMain extends Config with WinticketService {
+object WinticketMicroserviceMain extends WinticketService {
 
   override protected implicit val executor: ExecutionContext = system.dispatcher
   override protected val log: LoggingAdapter = Logging(system, getClass)
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
-
-
 
   //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
   implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
@@ -38,7 +35,7 @@ object WinticketMicroserviceMain extends Config with WinticketService {
   }
 
   def main(args: Array[String]): Unit = {
-    //Unfortunately the System Property -Dconfig.resource=/production.conf can not be initialized via JVM Arg, because the Config trait is initialized before this...
+    //Unfortunately the System Property -Dconfig.resource=/production.conf can not be initialized via JVM Arg, because the Config trait is initialized before this line...
     val jvmArg = """-D(\S+)=(\S+)""".r
     for (jvmArg(name, value) <- args) System.setProperty(name, value)
 
@@ -48,7 +45,6 @@ object WinticketMicroserviceMain extends Config with WinticketService {
       case Failure(f)       => log.error(f.getMessage)
     }
 
-    //to see the amount of data on startup
     logSubscriptions()
     logWinners()
 
