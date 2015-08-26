@@ -1,13 +1,13 @@
 package com.winticket.server
 
-import java.io.IOException
+import java.io._
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse, MediaTypes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
@@ -17,15 +17,18 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
+import com.winticket.util.RenderHelper
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
+
 case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
 
 case class UserPass(username: String, password: String)
+
 
 trait WinticketService extends BaseService {
 
@@ -34,7 +37,7 @@ trait WinticketService extends BaseService {
   protected var aListOfDrawingActors = ListBuffer[ActorRef]()
 
   lazy val telizeConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-    //Use Connection-Level Client-Side API
+  //Use Connection-Level Client-Side API
     Http().outgoingConnection(telizeHost, telizePort)
 
   def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
@@ -79,17 +82,16 @@ trait WinticketService extends BaseService {
           response.status match {
             case OK => {
               Unmarshal(response.entity).to[IpInfo].map {
-                ipinfo =>
-                  {
-                    val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
-                    if (countryString == "Switzerland") {
-                      log.info("Request is from Switzerland. Proceed")
-                      Future.successful(true)
-                    } else {
-                      log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
-                      Future.successful(false)
-                    }
+                ipinfo => {
+                  val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
+                  if (countryString == "Switzerland") {
+                    log.info("Request is from Switzerland. Proceed")
+                    Future.successful(true)
+                  } else {
+                    log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
+                    Future.successful(false)
                   }
+                }
               }
               Future.successful(false)
 
@@ -131,9 +133,10 @@ trait WinticketService extends BaseService {
     }
   }
 
+
   val routes = logRequestResult("winticket") {
 
-    //TODO Make param email accessible via "parameter(s)"
+    //TODO Make param email accessible via "url parameter(s)"
     //TODO Param Extract tennantYear and drawingEventID as String
 
     //A Map is required for the route. Convert the Java based listOfTennants...
@@ -146,31 +149,23 @@ trait WinticketService extends BaseService {
           val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
           if (isIPValid(clientIPString)) {
 
+            // TOOD Ask DrawingActor for State - or via isDrawingExecuted  and render html response to user when in postDrawing state
             aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString))
 
             complete {
-              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
-              <html>
-                <body>
-                  <status>OK</status>
-                  <tennantYear>
-                    { tennantYear }
-                  </tennantYear>
-                  <drawingEventID>
-                    { drawingEventID }
-                  </drawingEventID>
-                  <subscriptionEMail>
-                    { subscriptionEMail }
-                  </subscriptionEMail>
-                </body>
-              </html>
+              HttpResponse(
+                status = OK,
+                entity = HttpEntity(
+                  MediaTypes.`text/html`,
+                  RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> subscriptionEMail))
+                ))
             }
           } else {
             complete {
               //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
               <html>
                 <body>
-                  <status>NOK - IP Check failed</status>
+                  <status>IP Check failed - your subscription was not accepted</status>
                 </body>
               </html>
             }
@@ -199,6 +194,7 @@ trait WinticketService extends BaseService {
           }
         }
       }
-    } ~ path("")(getFromResource("web/index.html")) ~ getFromResourceDirectory("web")
+      //All the static stuff
+    } ~ path("")(getFromResource("")) ~ getFromResourceDirectory("web")
   }
 }

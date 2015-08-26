@@ -7,6 +7,7 @@ import com.winticket.core.Config
 import com.winticket.mail.{EMailMessage, EMailService, SmtpConfig}
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingProtocol.{DrawWinnerExecuted, DrawingCreated, DrawingEvent, Subscribed}
+import com.winticket.util.RenderHelper
 
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
@@ -30,11 +31,11 @@ object DrawingActor {
 
   case object DrawWinner extends ScheduledCmd
 
-  case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, subscriptions: Seq[SubscriptionRecord] = Nil) {
+  case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, drawingLinkToTicket: String, drawinSsecurityCodeForTicket: String, subscriptions: Seq[SubscriptionRecord] = Nil) {
     def updated(evt: DrawingEvent): DrawingState = evt match {
-      case Subscribed(year, eventID, email, ip, date) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail,
+      case Subscribed(year, eventID, email, ip, date) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail, drawingLinkToTicket, drawinSsecurityCodeForTicket,
         SubscriptionRecord(year, eventID, email, ip, date) +: subscriptions)
-      case DrawWinnerExecuted(winnerEMail) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail = Some(winnerEMail), subscriptions)
+      case DrawWinnerExecuted(winnerEMail) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail = Some(winnerEMail), drawingLinkToTicket, drawinSsecurityCodeForTicket, subscriptions)
       case _                               => this
     }
   }
@@ -73,7 +74,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
   def updateState(evt: DrawingEvent) = state = state.map(_.updated(evt))
 
   def setInitialState(evt: DrawingCreated) = {
-    state = Some(DrawingState(evt.tennantID, evt.tennantYear, evt.tennantEMail, evt.drawingEventID, evt.drawingEventName, evt.drawingEventDate))
+    state = Some(DrawingState(evt.tennantID, evt.tennantYear, evt.tennantEMail, evt.drawingEventID, evt.drawingEventName, evt.drawingEventDate, None, evt.drawingLinkToTicket, evt.drawingSecurityCodeForTicket))
     context.become(receiveCommands)
   }
 
@@ -123,7 +124,10 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
         val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
         val drawingDate = state.get.drawingEventDate - drawingDateDelta
-        val confirmationMessage = EMailMessage("Thank you for participating for event: " + state.get.drawingEventName, email, state.get.tennantEMail, Some("You participated - drawing will be at: " + drawingDate), None, smtpConfig, 1 minute, 3)
+        //Does not work: drawingDate.formatted("dd.MM.yyyy")
+        val drawinDateNice = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
+        val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/confirm.txt", Map("drawinDateNice" -> drawinDateNice)) )
+        val confirmationMessage = EMailMessage("Teilnahmebestätigung an Verlosung für: " + state.get.drawingEventName, email, state.get.tennantEMail, None, bodyText,  smtpConfig, 1 minute, 3)
         EMailService.send(confirmationMessage)
       } else {
         log.debug(s"Subscribe for event: $eventID is ignored by: $persistenceId")
@@ -159,10 +163,15 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
               context.become(postDrawing)
             })
 
-            //TODO winnerMessage cc to Organizer, HTML-Content with link to PDF-Docs and access code
             val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
-            val winnerMessage = EMailMessage("Sie haben gewonnen: 2 Tickets für: " + state.get.drawingEventName, theWinnerEMail, state.get.tennantEMail, Some("EMail: " + state.get.tennantEMail + " - Drawing was at: " + DateTime.now), None, smtpConfig, 1 minute, 3)
+            val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/winner.txt", Map("linkToTicket" -> state.get.drawingLinkToTicket, "securityCodeForTicket" -> state.get.drawinSsecurityCodeForTicket)))
+            val winnerMessage = EMailMessage("Sie haben gewonnen: 2 Tickets für: " + state.get.drawingEventName, theWinnerEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
             EMailService.send(winnerMessage)
+
+            //TODO Activate Mail to tennant before live
+            //val winnerMessageToTennant = EMailMessage("2 Tickets für: " + state.get.drawingEventName + " gehen an: " + theWinnerEMail, state.get.tennantEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
+            //EMailService.send(winnerMessageToTennant)
+
           } else {
             log.info(s"Drawing for eventID: $eventID and eventDate: $eventDate has NO subscriptions, that means no winner can be drawn...")
             updateState(DrawWinnerExecuted("N/A"))

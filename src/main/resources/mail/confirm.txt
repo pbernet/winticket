@@ -1,0 +1,4 @@
+Danke für die Teilnahme.<br>
+Die Verlosung ist am: %%drawinDateNice%%.<br>
+Die GewinnerIn wird benachrichtigt via Email.<br>
+Teilnahmebedingungen: Der Rechtsweg ist ausgeschlossen.
