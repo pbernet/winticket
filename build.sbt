@@ -2,7 +2,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.1"
+version       := "0.0.2"
 scalaVersion  := "2.11.7"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -12,9 +12,9 @@ scalacOptions := Seq(
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
   val akkaStreamV      = "1.0"
-  val akkaV            = "2.3.12"  //2.4-SNAPSHOT seems to work only for Java 1.8
+  val akkaV            = "2.4.0-RC3"  // 2.4-SNAPSHOT seems to work only for Java 1.8
   val apacheMailV      = "1.2"
-  val productCollV = "1.4.2"
+  val productCollV     = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
   val scalaMockV       = "3.2.2"
   val scalazScalaTestV = "0.2.3"
@@ -23,9 +23,11 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-stream-experimental"             % akkaStreamV,
     "com.typesafe.akka" %% "akka-http-core-experimental"          % akkaStreamV,
     "com.typesafe.akka" %% "akka-http-spray-json-experimental"    % akkaStreamV,
+    "com.typesafe.akka" %% "akka-slf4j" % akkaV,
+    "ch.qos.logback"     % "logback-classic" % "1.1.3",
 
     //TODO Check purpose of leveldb libs
-    "com.typesafe.akka" %% "akka-persistence-experimental"        % akkaV,
+    "com.typesafe.akka" %% "akka-persistence"                     % akkaV,
     "org.iq80.leveldb"            % "leveldb"                     % "0.7",
     "org.fusesource.leveldbjni"   % "leveldbjni-all"              % "1.8",
 

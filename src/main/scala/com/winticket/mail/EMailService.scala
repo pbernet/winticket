@@ -1,10 +1,9 @@
 package com.winticket.mail
 
-import akka.actor._
 import akka.actor.SupervisorStrategy._
-import akka.routing.SmallestMailboxRouter
-import org.apache.commons.mail.{ HtmlEmail, DefaultAuthenticator, EmailException }
-import akka.actor.ActorDSL._
+import akka.actor._
+import akka.routing.SmallestMailboxPool
+import org.apache.commons.mail.{DefaultAuthenticator, EmailException, HtmlEmail}
 
 /**
  * Email service with its own ActorSystem
@@ -17,7 +16,7 @@ object EMailService {
    */
   val emailServiceActor = akka.actor.ActorSystem("system").actorOf(
     Props[EmailServiceActor].withRouter(
-      SmallestMailboxRouter(nrOfInstances = 20)
+      SmallestMailboxPool(nrOfInstances = 20)
     ), name = "EMailService"
   )
 
