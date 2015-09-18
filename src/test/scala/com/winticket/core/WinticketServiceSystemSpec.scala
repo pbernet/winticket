@@ -35,14 +35,14 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
     http("gruenfels/2015/49")
       .get("/gruenfels/2015/49/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
     http("gruenfels/2015/49")
       .get("/gruenfels/2015/49/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with different accounts for the same event
@@ -50,14 +50,14 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
     http("gruenfels/2015/49")
       .get("/gruenfels/2015/49/" + mailAccount2)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
     http("gruenfels/2015/49")
       .get("/gruenfels/2015/49/" + mailAccount3)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with default account for other events
@@ -65,28 +65,28 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
     http("gruenfels/2015/50")
       .get("/gruenfels/2015/50/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
     http("gruenfels/2015/51")
       .get("/gruenfels/2015/51/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
     http("gruenfels/2015/52")
       .get("/gruenfels/2015/52/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
     http("gruenfels/2015/53")
       .get("/gruenfels/2015/53/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with default account for 2nd tennant
@@ -94,7 +94,7 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
     http("mandant2/2015/1")
       .get("/mandant2/2015/1/" + mailAccount1)
       .check(status.is(200))
-      .check(xpath("/html/body/status/text()").is("OK"))
+    //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
 }
