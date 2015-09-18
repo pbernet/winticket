@@ -1,8 +1,8 @@
 Herzliche Gratulation zum Gewinn!<br><br>
-So gehen Sie vor um den Gewinn einzulösen:<br>
+So gehen Sie vor um die Tickets herunterzuladen.<br>
 Klicken Sie auf folgenden Link:<br>
 %%linkToTicket%%<br><br>
-und geben Sie folgenden Code ein:<br>
+und geben Sie folgenden Sicherheitscode ein:<br>
 %%securityCodeForTicket%%<br><br>
 Drucken Sie die Tickets aus und zeigen Sie diese an der Abendkasse.<br><br>
 Bis bald!
