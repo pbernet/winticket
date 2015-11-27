@@ -12,7 +12,7 @@ scalacOptions := Seq(
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
   val akkaStreamV      = "1.0"
-  val akkaV            = "2.4.0-RC3"  // 2.4-SNAPSHOT seems to work only for Java 1.8
+  val akkaV            = "2.4.0"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
@@ -55,6 +55,15 @@ scalariformSettings
 Revolver.settings
 enablePlugins(JavaAppPackaging)
 enablePlugins(GatlingPlugin)
+
+maintainer in Docker := "Paul Bernet <paul.bernet@gmail.com>"
+//TODO Switch to Debian jessie sth like "java:8-jre"
+dockerBaseImage := "java:8-jre"
+dockerExposedPorts := Seq(9000)
+dockerEntrypoint := Seq(
+  "bin/winticket",
+  "-Dconfig.resource=/production.conf")
+
 
 //needed for experimental ScalaTest/Gatling integration for REST API Testing
 resolvers +=
