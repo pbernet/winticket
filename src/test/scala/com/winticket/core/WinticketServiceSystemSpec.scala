@@ -21,6 +21,7 @@ import io.gatling.http.funspec.GatlingHttpFunSpec
 class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
 
   val baseURL = "http://localhost:9000"
+  //val baseURL = "http://winticket.elasticbeanstalk.com"
   override def httpConf = {
     super.httpConf.header("Custom-Header", "gatling.io")
     super.httpConf.userAgentHeader("gatling.io")
@@ -32,67 +33,67 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
 
   //simulate a redundant subscription
   spec {
-    http("gruenfels/2015/49")
-      .get("/gruenfels/2015/49/" + mailAccount1)
+    http("gruenfels/2016/57")
+      .get("/gruenfels/2016/57/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2015/49")
-      .get("/gruenfels/2015/49/" + mailAccount1)
+    http("gruenfels/2016/57")
+      .get("/gruenfels/2016/57/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with different accounts for the same event
   spec {
-    http("gruenfels/2015/49")
-      .get("/gruenfels/2015/49/" + mailAccount2)
+    http("gruenfels/2016/49")
+      .get("/gruenfels/2016/49/" + mailAccount2)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2015/49")
-      .get("/gruenfels/2015/49/" + mailAccount3)
+    http("gruenfels/2016/49")
+      .get("/gruenfels/2016/49/" + mailAccount3)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with default account for other events
   spec {
-    http("gruenfels/2015/50")
-      .get("/gruenfels/2015/50/" + mailAccount1)
+    http("gruenfels/2016/50")
+      .get("/gruenfels/2016/50/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2015/51")
-      .get("/gruenfels/2015/51/" + mailAccount1)
+    http("gruenfels/2016/51")
+      .get("/gruenfels/2016/51/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2015/52")
-      .get("/gruenfels/2015/52/" + mailAccount1)
+    http("gruenfels/2016/52")
+      .get("/gruenfels/2016/52/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2015/53")
-      .get("/gruenfels/2015/53/" + mailAccount1)
+    http("gruenfels/2016/53")
+      .get("/gruenfels/2016/53/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   //subscribe with default account for 2nd tennant
   spec {
-    http("mandant2/2015/1")
-      .get("/mandant2/2015/1/" + mailAccount1)
+    http("mandant2/2016/1")
+      .get("/mandant2/2016/1/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }

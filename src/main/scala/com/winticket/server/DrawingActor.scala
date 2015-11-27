@@ -17,19 +17,15 @@ object DrawingActor {
   import DrawingProtocol._
 
   sealed trait Command
-
   case class CreateDrawing(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, linkToTicket: String, securityCodeForTicket: String) extends Command
-
   case class Subscribe(tennantID: String, year: String, eventID: String, email: String, ip: String) extends Command
 
-  sealed trait Query
+  sealed trait ScheduledCmd
+  case object DrawWinner extends ScheduledCmd
 
+  sealed trait Query
   case object GetSubscribtions extends Query
   case object GetWinnerEMail extends Query
-
-  sealed trait ScheduledCmd
-
-  case object DrawWinner extends ScheduledCmd
 
   case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, drawingLinkToTicket: String, drawinSsecurityCodeForTicket: String, subscriptions: Seq[SubscriptionRecord] = Nil) {
     def updated(evt: DrawingEvent): DrawingState = evt match {
@@ -38,6 +34,8 @@ object DrawingActor {
       case DrawWinnerExecuted(winnerEMail) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail = Some(winnerEMail), drawingLinkToTicket, drawinSsecurityCodeForTicket, subscriptions)
       case _                               => this
     }
+
+    def sizeSubscriptions = subscriptions.length
   }
 
   case class SubscriptionRecord(year: String, eventID: String, email: String, ip: String, date: DateTime)
@@ -108,7 +106,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
   val receiveCreate: Receive = {
     case c @ CreateDrawing(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, linkToTicket, securityCodeForTicket) => {
       persist(DrawingCreated(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, linkToTicket, securityCodeForTicket)) { evt =>
-        log.info(s"Creating drawing with from message $c")
+        log.info(s"Creating drawing from message $c")
         setInitialState(evt)
       }
     }

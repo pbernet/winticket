@@ -2,73 +2,61 @@ package com.winticket.server
 
 import java.io._
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
-import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse, MediaTypes}
+import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.pattern.ask
+import akka.stream.io.SynchronousFileSink
 import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.util.Timeout
+import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
-import com.winticket.util.RenderHelper
+import com.winticket.server.DrawingActorSupervisor.{CreateChild, Subscribtions, Winners}
+import com.winticket.util.{DataLoaderHelper, RenderHelper}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
-
+import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
 
 case class UserPass(username: String, password: String)
 
+class TryIterator[T](it: Iterator[T]) extends Iterator[Try[T]] {
+  def next = Try(it.next())
+
+  def hasNext = it.hasNext
+}
 
 trait WinticketService extends BaseService {
 
   protected implicit val system = ActorSystem("winticket")
 
-  protected var aListOfDrawingActors = ListBuffer[ActorRef]()
+  val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
   lazy val telizeConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-  //Use Connection-Level Client-Side API
+    //Use Connection-Level Client-Side API
     Http().outgoingConnection(telizeHost, telizePort)
 
   def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
 
-  def createDrawing(data: CreateDrawing): Unit = {
-    val uniqueActorRef = "DrawingActor-" + data.tennantID + "-" + data.drawingEventID
-    val drawingActor = system.actorOf(DrawingActor.props(uniqueActorRef), uniqueActorRef)
-    drawingActor ! data
-    log.info(s"------- DrawingActor -----> $data")
-    aListOfDrawingActors += drawingActor
+  def createDrawing(createDrawing: CreateDrawing): Unit = {
+    supervisor ! CreateChild(createDrawing)
+
   }
 
   def logSubscriptions(): Unit = {
-    implicit val timeout = Timeout(5 seconds)
-    aListOfDrawingActors.foreach { drawingActor =>
-      val subscriptionsFuture = drawingActor ? GetSubscribtions
-      log.info(s"------- DrawingActor -----> $GetSubscribtions")
-      val subscriptions = Await.result(subscriptionsFuture, timeout.duration)
-      val size = subscriptions.asInstanceOf[List[String]].size
-      log.info(s"<------ DrawingActor ------ Size: $size Data: $subscriptions")
-    }
+    supervisor ! Subscribtions
   }
 
   def logWinners(): Unit = {
-    implicit val timeout = Timeout(5 seconds)
-    aListOfDrawingActors.foreach { drawingActor =>
-      val winnerFuture = drawingActor ? GetWinnerEMail
-      log.info(s"------- DrawingActor -----> $GetWinnerEMail")
-      val winnerEMail = Await.result(winnerFuture, timeout.duration)
-      log.info(s"<------ DrawingActor ------ WinnerEMail: $winnerEMail")
-    }
+    supervisor ! Winners
   }
 
   def isIPValid(clientIP: String): Boolean = {
@@ -82,16 +70,17 @@ trait WinticketService extends BaseService {
           response.status match {
             case OK => {
               Unmarshal(response.entity).to[IpInfo].map {
-                ipinfo => {
-                  val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
-                  if (countryString == "Switzerland") {
-                    log.info("Request is from Switzerland. Proceed")
-                    Future.successful(true)
-                  } else {
-                    log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
-                    Future.successful(false)
+                ipinfo =>
+                  {
+                    val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
+                    if (countryString == "Switzerland") {
+                      log.info("Request is from Switzerland. Proceed")
+                      Future.successful(true)
+                    } else {
+                      log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
+                      Future.successful(false)
+                    }
                   }
-                }
               }
               Future.successful(false)
 
@@ -119,11 +108,11 @@ trait WinticketService extends BaseService {
   }
 
   def basicAuthenticator: Authenticator[UserPass] = {
-    case missing@Missing => {
+    case missing @ Missing => {
       log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
       None
     }
-    case provided@Provided(_) => {
+    case provided @ Provided(_) => {
       log.info(s"Received UserCredentials is: $provided")
       if (provided.username == adminUsername && provided.verifySecret(adminPassword)) {
         Some(UserPass("admin", ""))
@@ -132,7 +121,6 @@ trait WinticketService extends BaseService {
       }
     }
   }
-
 
   val routes = logRequestResult("winticket") {
 
@@ -150,7 +138,7 @@ trait WinticketService extends BaseService {
           if (isIPValid(clientIPString)) {
 
             // TOOD Ask DrawingActor for State - or via isDrawingExecuted  and render html response to user when in postDrawing state
-            aListOfDrawingActors.foreach(drawingActor => drawingActor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString))
+            supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString)
 
             complete {
               HttpResponse(
@@ -179,20 +167,43 @@ trait WinticketService extends BaseService {
         log.info("User is: " + user.username)
 
         (get & path(Segment)) { command =>
-          if (command == "startDrawings") aListOfDrawingActors.foreach(drawingActor => drawingActor ! DrawWinner)
+          if (command == "startDrawings") supervisor ! DrawWinner
 
           //Debug response
           complete {
             <html>
               <body>
                 Command is:
-                {command}
+                { command }
                 User is:
-                {user.username}
+                { user.username }
               </body>
             </html>
           }
         }
+      }
+    } ~ path("upload") {
+      (post & extractRequest) {
+        request =>
+          {
+            //Drawback: writes the file with the metadata...
+            val source = request.entity.dataBytes
+            val outFile = new File("/tmp/outfile.dat")
+            val sink = SynchronousFileSink.create(outFile)
+            val replyMessage = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
+            onSuccess(replyMessage) { repl =>
+
+              //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
+              implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
+
+              val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile), hasHeader = true)).toList
+              aListOfDrawingEventsTry.foreach {
+                case Success(content) => createDrawing(content)
+                case Failure(f)       => log.error(f.getMessage)
+              }
+              complete(HttpResponse(status = StatusCodes.OK, entity = repl))
+            }
+          }
       }
       //All the static stuff
     } ~ path("")(getFromResource("")) ~ getFromResourceDirectory("web")
