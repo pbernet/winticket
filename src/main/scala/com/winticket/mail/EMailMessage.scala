@@ -6,8 +6,8 @@ import scala.concurrent.duration.FiniteDuration
  * The email message sent to Actors in charge of delivering email
  *
  * @param subject the email subject
- * @param recipient the recipient
- * @param from the sender
+ * @param recipient the recipient email address
+ * @param from the sender name
  * @param text alternative simple text
  * @param html html body
  */
