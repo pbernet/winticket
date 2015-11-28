@@ -41,7 +41,7 @@ trait WinticketService extends BaseService {
   val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
   lazy val telizeConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-    //Use Connection-Level Client-Side API
+  //Use Connection-Level Client-Side API
     Http().outgoingConnection(telizeHost, telizePort)
 
   def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
@@ -70,17 +70,16 @@ trait WinticketService extends BaseService {
           response.status match {
             case OK => {
               Unmarshal(response.entity).to[IpInfo].map {
-                ipinfo =>
-                  {
-                    val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
-                    if (countryString == "Switzerland") {
-                      log.info("Request is from Switzerland. Proceed")
-                      Future.successful(true)
-                    } else {
-                      log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
-                      Future.successful(false)
-                    }
+                ipinfo => {
+                  val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
+                  if (countryString == "Switzerland") {
+                    log.info("Request is from Switzerland. Proceed")
+                    Future.successful(true)
+                  } else {
+                    log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
+                    Future.successful(false)
                   }
+                }
               }
               Future.successful(false)
 
@@ -108,11 +107,11 @@ trait WinticketService extends BaseService {
   }
 
   def basicAuthenticator: Authenticator[UserPass] = {
-    case missing @ Missing => {
+    case missing@Missing => {
       log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
       None
     }
-    case provided @ Provided(_) => {
+    case provided@Provided(_) => {
       log.info(s"Received UserCredentials is: $provided")
       if (provided.username == adminUsername && provided.verifySecret(adminPassword)) {
         Some(UserPass("admin", ""))
@@ -174,9 +173,9 @@ trait WinticketService extends BaseService {
             <html>
               <body>
                 Command is:
-                { command }
+                {command}
                 User is:
-                { user.username }
+                {user.username}
               </body>
             </html>
           }
@@ -184,26 +183,25 @@ trait WinticketService extends BaseService {
       }
     } ~ path("upload") {
       (post & extractRequest) {
-        request =>
-          {
-            //Drawback: writes the file with the metadata...
-            val source = request.entity.dataBytes
-            val outFile = new File("/tmp/outfile.dat")
-            val sink = SynchronousFileSink.create(outFile)
-            val replyMessage = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
-            onSuccess(replyMessage) { repl =>
+        request => {
+          val source = request.entity.dataBytes
+          val outFile = new File("/tmp/outfile.dat")
+          val sink = SynchronousFileSink.create(outFile)
+          val replyMessage = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
 
-              //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
-              implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
+          onSuccess(replyMessage) { replyMsg =>
 
-              val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile), hasHeader = true)).toList
-              aListOfDrawingEventsTry.foreach {
-                case Success(content) => createDrawing(content)
-                case Failure(f)       => log.error(f.getMessage)
-              }
-              complete(HttpResponse(status = StatusCodes.OK, entity = repl))
+            //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
+            implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
+
+            val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile), hasHeader = true)).toList
+            aListOfDrawingEventsTry.foreach {
+              case Success(content) => createDrawing(content)
+              case Failure(f) => log.error(f.getMessage)
             }
+            complete(HttpResponse(status = StatusCodes.OK, entity = replyMsg))
           }
+        }
       }
       //All the static stuff
     } ~ path("")(getFromResource("")) ~ getFromResourceDirectory("web")
