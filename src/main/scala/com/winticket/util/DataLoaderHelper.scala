@@ -1,21 +1,16 @@
 package com.winticket.util
 
-import java.io.{File, FileInputStream, InputStream, InputStreamReader}
+import java.io.{File, FileInputStream, InputStreamReader}
 
 object DataLoaderHelper {
 
   def readFromResource(eventsFilePath: String) = {
-    val stream: InputStream = getClass.getResourceAsStream(eventsFilePath)
-    new InputStreamReader(stream, "UTF-8")
+    val inputStream = getClass.getResourceAsStream(eventsFilePath)
+    new InputStreamReader(inputStream, "UTF-8")
   }
 
   def readFromFile(file: File) = {
-    import sys.process._
-    //TODO Remove last (blank) line/char - leads to an error in the import...
-    Seq("sed", "-i", ".bak", "1,4d", file.getAbsolutePath)!;
-    Seq("sed", "-i", ".bak", "$ d", file.getAbsolutePath)!;
-
-    val inputStream = new FileInputStream(file)
-    new InputStreamReader(inputStream)
+    val fileInputStream = new FileInputStream(file)
+    new InputStreamReader(fileInputStream, "UTF-8")
   }
 }
