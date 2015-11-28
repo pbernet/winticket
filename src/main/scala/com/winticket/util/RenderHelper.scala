@@ -4,10 +4,9 @@ import java.io.InputStream
 
 
 /**
- * This is an simple solution for the current needs. But:
- * - May have side effects
- * - May not scale
- *
+ * This is an simple solution for the current needs. Remarks:
+ *  - May have side effects and may not scale
+ *  - Could be replaced by a custom directive
  */
 
 object RenderHelper {
