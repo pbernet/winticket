@@ -119,7 +119,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         state.get.drawingEventID == eventID && state.get.tennantID == tennantID && state.get.tennantYear.toString == year
       }
 
-      def sentConfirmationMail: Unit = {
+      def sendConfirmationMail() = {
         val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
         val drawingDate = state.get.drawingEventDate - drawingDateDelta
         val drawinDateNice = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
@@ -133,7 +133,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
           log.info(s"Subscribed $email for year: $year and eventID: $eventID")
           updateState(evt)
         })
-        sentConfirmationMail
+        sendConfirmationMail()
       } else {
         log.debug(s"Subscribe for event: $eventID is ignored by: $persistenceId")
       }
