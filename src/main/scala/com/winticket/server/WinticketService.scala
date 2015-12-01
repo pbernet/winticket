@@ -136,7 +136,8 @@ trait WinticketService extends BaseService {
           val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
           if (isIPValid(clientIPString)) {
 
-            // TOOD Ask DrawingActor for State - or via isDrawingExecuted  and render html response to user when in postDrawing state
+            // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation could be sent to user
+            // Ask DrawingActor for State - or via isDrawingExecuted  and render html response to user when in postDrawing state
             supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString)
 
             complete {
