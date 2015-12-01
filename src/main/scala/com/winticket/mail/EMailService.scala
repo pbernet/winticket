@@ -44,6 +44,7 @@ object EMailService {
       emailMessage.smtpConfig.user,
       emailMessage.smtpConfig.password
     ))
+    email.setCharset("utf-8")
 
     emailMessage.text match {
       case Some(text) => email.setTextMsg(text)
