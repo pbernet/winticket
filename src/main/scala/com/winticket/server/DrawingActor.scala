@@ -63,7 +63,6 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
   //Bootstrap for scheduled execution of DrawWinner
   //The initial shot is delayed, so that some testdata can be brought into the system with sbt test
   import context.dispatcher
-
   val draw = context.system.scheduler.schedule(5 minute, 1 hour, self, DrawWinner)
 
   override def postStop() = draw.cancel()
@@ -100,7 +99,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       state = Some(snapshot)
       context.become(receiveCommands)
     }
-    case a @ _ => log.debug(s"Received unknown message for state receiveRecover - do nothing. Message is: $a")
+    case msg => log.warning(s"Received unknown message for state receiveRecover - do nothing. Message is: $msg")
   }
 
   val receiveCreate: Receive = {
@@ -110,30 +109,35 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         setInitialState(evt)
       }
     }
-    case a @ _ => log.debug(s"Received unknown message for state receiveCreate - do nothing. Message is: $a")
+    case msg => log.warning(s"Received unknown message for state receiveCreate - do nothing. Message is: $msg")
   }
 
   val receiveCommands: Receive = {
     case Subscribe(tennantID, year, eventID, email, ip) => {
-      //only matching events are accepted
-      if (state.get.drawingEventID == eventID && state.get.tennantID == tennantID && state.get.tennantYear.toString == year) {
+
+      def isMatchingEvent = {
+        state.get.drawingEventID == eventID && state.get.tennantID == tennantID && state.get.tennantYear.toString == year
+      }
+
+      def sentConfirmationMail: Unit = {
+        val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
+        val drawingDate = state.get.drawingEventDate - drawingDateDelta
+        val drawinDateNice = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
+        val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/confirm.txt", Map("drawinDateNice" -> drawinDateNice)))
+        val confirmationMessage = EMailMessage("Teilnahme an Verlosung: " + state.get.drawingEventName, email, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
+        EMailService.send(confirmationMessage)
+      }
+
+      if (isMatchingEvent) {
         persist(Subscribed(year, eventID, email, ip, DateTime.now))(evt => {
-          log.info(s"Subscribed $email for year: $year and event with ID: $eventID")
+          log.info(s"Subscribed $email for year: $year and eventID: $eventID")
           updateState(evt)
           sender() ! evt
         })
-
-        val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
-        val drawingDate = state.get.drawingEventDate - drawingDateDelta
-        //Does not work: drawingDate.formatted("dd.MM.yyyy")
-        val drawinDateNice = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
-        val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/confirm.txt", Map("drawinDateNice" -> drawinDateNice)))
-        val confirmationMessage = EMailMessage("Teilnahmebestätigung an Verlosung für: " + state.get.drawingEventName, email, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
-        EMailService.send(confirmationMessage)
+        sentConfirmationMail
       } else {
         log.debug(s"Subscribe for event: $eventID is ignored by: $persistenceId")
       }
-
     }
 
     case DrawWinner => {
@@ -186,13 +190,13 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
     // Queries
     case GetSubscribtions => {
-      log.debug("XXXX Number of subscriptions: " + state.get.subscriptions)
+      log.debug("Number of subscriptions: " + state.get.subscriptions)
       sender() ! state.get.subscriptions
     }
     case GetWinnerEMail => {
       sender() ! state.get.drawingWinnerEMail
     }
-    case a @ _ => log.debug(s"Received unknown message for state receiveCommands - do nothing. Message is: $a")
+    case msg => log.warning(s"Received unknown message for state receiveCommands - do nothing. Message is: $msg")
   }
 
   val postDrawing: Receive = {
@@ -202,7 +206,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     case GetWinnerEMail => {
       sender() ! state.get.drawingWinnerEMail
     }
-    case a @ _ => log.debug(s"Received unknown message for state postDrawing - do nothing. Message is: $a")
+    case msg => log.warning(s"Received unknown message for state postDrawing - do nothing. Message is: $msg")
   }
 
   // Initially we expect a CreateDrawing command
