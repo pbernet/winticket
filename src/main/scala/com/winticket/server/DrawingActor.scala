@@ -132,7 +132,6 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         persist(Subscribed(year, eventID, email, ip, DateTime.now))(evt => {
           log.info(s"Subscribed $email for year: $year and eventID: $eventID")
           updateState(evt)
-          sender() ! evt
         })
         sentConfirmationMail
       } else {
@@ -164,7 +163,6 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
             persist(DrawWinnerExecuted(theWinnerEMail))(evt => {
               updateState(evt)
-              sender() ! evt
               context.become(postDrawing)
             })
 
