@@ -4,7 +4,8 @@ import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
 
 /**
   * Start the http service and bootstrap the actor system (in WinticketService)
@@ -30,5 +31,12 @@ object WinticketMicroserviceMain extends WinticketService {
 
     log.info(s"Bind to: $httpInterface and: $httpPort")
     Http().bindAndHandle(routes, httpInterface, httpPort)
+
+    scala.sys.addShutdownHook {
+      log.info("Terminating...")
+      system.terminate()
+      Await.result(system.whenTerminated, 30.seconds)
+      log.info("Terminated... Bye")
+    }
   }
 }
