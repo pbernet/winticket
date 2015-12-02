@@ -1,7 +1,7 @@
 package com.winticket.server
 
-import akka.actor.SupervisorStrategy.Restart
-import akka.actor.{ActorLogging, OneForOneStrategy}
+import akka.actor.SupervisorStrategy.{Escalate, Restart}
+import akka.actor.{Terminated, ActorLogging, OneForOneStrategy}
 import akka.pattern.ask
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.util.Timeout
@@ -34,9 +34,9 @@ object DrawingActorSupervisor {
 class DrawingActorSupervisor extends PersistentActor with ActorLogging {
 
   //TODO Find a more suitable strategy for persistent Actors
-  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 2, withinTimeRange = 30.seconds) {
-    case _: NullPointerException => Restart
+  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 2, withinTimeRange = 2.minutes) {
     case _: RuntimeException     => Restart
+    case t => super.supervisorStrategy.decider.applyOrElse(t, (_: Any) => Escalate)
   }
 
   override def persistenceId: String = "DrawingActorSupervisor"
@@ -73,7 +73,6 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
         context.watch(child)
       }
     }
-
     case Subscribtions => {
       implicit val timeout = Timeout(5 seconds)
       context.children.foreach { drawingActor =>
@@ -98,6 +97,9 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
     }
     case DrawWinner => {
       context.children.foreach(drawingActor => drawingActor ! DrawWinner)
+    }
+    case Terminated(child) => {
+      log.info("Child: {} has terminated." + child.actorRef.path)
     }
   }
 
