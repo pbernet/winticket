@@ -60,10 +60,8 @@ object DrawingActor {
 
 class DrawingActor(actorID: String) extends PersistentActor with ActorLogging with Config {
 
-  //Bootstrap for scheduled execution of DrawWinner
-  //The initial shot is delayed, so that some testdata can be brought into the system with sbt test
   import context.dispatcher
-  val draw = context.system.scheduler.schedule(5 minute, 1 hour, self, DrawWinner)
+  val draw = context.system.scheduler.schedule(initialDelayDrawWinner, intervalDrawWinner, self, DrawWinner)
 
   override def postStop() = draw.cancel()
 
@@ -171,9 +169,10 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
             val winnerMessage = EMailMessage("Sie haben gewonnen: 2 Tickets für: " + state.get.drawingEventName, theWinnerEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
             EMailService.send(winnerMessage)
 
-            //TODO Activate Mail to tennant before live
-            //val winnerMessageToTennant = EMailMessage("2 Tickets für: " + state.get.drawingEventName + " gehen an: " + theWinnerEMail, state.get.tennantEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
-            //EMailService.send(winnerMessageToTennant)
+            if(winnerMessageToTennantisActivated) {
+              val winnerMessageToTennant = EMailMessage("2 Tickets für: " + state.get.drawingEventName + " gehen an: " + theWinnerEMail, state.get.tennantEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
+              EMailService.send(winnerMessageToTennant)
+            }
 
           } else {
             log.info(s"Drawing for eventID: $eventID and eventDate: $eventDate has NO subscriptions, that means no winner can be drawn...")
