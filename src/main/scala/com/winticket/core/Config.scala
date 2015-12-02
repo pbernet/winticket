@@ -1,6 +1,10 @@
 package com.winticket.core
 
+import java.util.concurrent.TimeUnit
+
 import com.typesafe.config.ConfigFactory
+
+import scala.concurrent.duration.FiniteDuration
 
 trait Config {
   private val config = ConfigFactory.load()
@@ -16,7 +20,10 @@ trait Config {
   val httpPort = httpConfig.getInt("port")
 
   val drawingDateDeltaDaysBackwards = appConfig.getLong("drawingDateDeltaDaysBackwards")
-  val listOfTennants = appConfig.getStringList("tennantList")
+  val tennantList = appConfig.getStringList("tennantList")
+  val winnerMessageToTennantisActivated = appConfig.getBoolean("winnerMessageToTennantisActivated")
+  val initialDelayDrawWinner = FiniteDuration(appConfig.getDuration("initialDelayDrawWinner", TimeUnit.MINUTES), TimeUnit.MINUTES)
+  val intervalDrawWinner = FiniteDuration(appConfig.getDuration("intervalDrawWinner", TimeUnit.HOURS), TimeUnit.HOURS)
 
   val tls = smtpConfig.getBoolean("tls")
   val ssl = smtpConfig.getBoolean("ssl")
