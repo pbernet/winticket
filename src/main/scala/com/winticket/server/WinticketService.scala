@@ -73,7 +73,7 @@ trait WinticketService extends BaseService {
                 ipinfo => {
                   val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
                   if (countryString == "Switzerland") {
-                    log.info("Request is from Switzerland. Proceed")
+                    log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
                     Future.successful(true)
                   } else {
                     log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
@@ -127,7 +127,7 @@ trait WinticketService extends BaseService {
     //TODO Param Extract tennantYear and drawingEventID as String
 
     //A Map is required for the route. Convert the Java based listOfTennants...
-    val tennantMap: Map[String, String] = listOfTennants.asScala.toList.map { case k => k -> k }.toMap
+    val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
 
     pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
 
@@ -188,9 +188,9 @@ trait WinticketService extends BaseService {
           val source = request.entity.dataBytes
           val outFile = new File("/tmp/outfile.dat")
           val sink = SynchronousFileSink.create(outFile)
-          val replyMessage = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
+          val replyFuture = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
 
-          onSuccess(replyMessage) { replyMsg =>
+          onSuccess(replyFuture) { replyMsg =>
 
             //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
             implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
