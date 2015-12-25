@@ -15,9 +15,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Upload the test data file via Http
-  * Has the sideeffect, that the file on the server contains Metainformation, don't know why...
-  */
+ * Upload the test data file via Http
+ * Has the sideeffect, that the file on the server contains Metainformation, don't know why...
+ */
 object FileUpload extends App {
 
   implicit val system = ActorSystem("ServerTest")
