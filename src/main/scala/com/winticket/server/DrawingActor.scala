@@ -169,7 +169,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
             val winnerMessage = EMailMessage("Sie haben gewonnen: 2 Tickets für: " + state.get.drawingEventName, theWinnerEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
             EMailService.send(winnerMessage)
 
-            if(winnerMessageToTennantisActivated) {
+            if (winnerMessageToTennantisActivated) {
               val winnerMessageToTennant = EMailMessage("2 Tickets für: " + state.get.drawingEventName + " gehen an: " + theWinnerEMail, state.get.tennantEMail, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
               EMailService.send(winnerMessageToTennant)
             }

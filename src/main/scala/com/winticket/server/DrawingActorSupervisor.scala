@@ -1,7 +1,7 @@
 package com.winticket.server
 
 import akka.actor.SupervisorStrategy.{Escalate, Restart}
-import akka.actor.{Terminated, ActorLogging, OneForOneStrategy}
+import akka.actor.{ActorLogging, OneForOneStrategy, Terminated}
 import akka.pattern.ask
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.util.Timeout
@@ -35,8 +35,8 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
 
   //TODO Find a more suitable strategy for persistent Actors
   override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 2, withinTimeRange = 2.minutes) {
-    case _: RuntimeException     => Restart
-    case t => super.supervisorStrategy.decider.applyOrElse(t, (_: Any) => Escalate)
+    case _: RuntimeException => Restart
+    case t                   => super.supervisorStrategy.decider.applyOrElse(t, (_: Any) => Escalate)
   }
 
   override def persistenceId: String = "DrawingActorSupervisor"

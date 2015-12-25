@@ -8,11 +8,11 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
 /**
-  * Start the http service and bootstrap the actor system (in WinticketService)
-  *
-  * To clean db execute from terminal: rm -rf target/winticket/journal
-  *
-  **/
+ * Start the http service and bootstrap the actor system (in WinticketService)
+ *
+ * To clean db execute from terminal: rm -rf target/winticket/journal
+ *
+ */
 
 object WinticketMicroserviceMain extends WinticketService {
 
