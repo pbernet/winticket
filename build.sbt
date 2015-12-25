@@ -57,13 +57,15 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(GatlingPlugin)
 
 maintainer in Docker := "Paul Bernet <paul.bernet@gmail.com>"
-//TODO Switch to Debian jessie sth like "java:8-jre"
 dockerBaseImage := "java:8-jre"
+daemonUser in Docker := "root"
 dockerExposedPorts := Seq(9000)
 dockerEntrypoint := Seq(
   "bin/winticket",
   "-Dconfig.resource=/production.conf")
 
+defaultLinuxInstallLocation in Docker := "/var/app/current"
+dockerExposedVolumes := Seq("/var/app/current/stage/opt/docker/target/winticket/journal", "/var/app/current/stage/opt/docker/target/winticket/snapshots" )
 
 //needed for experimental ScalaTest/Gatling integration for REST API Testing
 resolvers +=

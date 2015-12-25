@@ -2,5 +2,17 @@
   "AWSEBDockerrunVersion": "1",
   "Ports": [{
     "ContainerPort": "9000"
-  }]
+  }],
+
+  "Volumes": [
+    {
+      "HostDirectory": "/media/ebs_volume1",
+      "ContainerDirectory": "/var/app/current/stage/opt/docker/target/winticket/journal"
+    },
+    {
+      "HostDirectory": "/media/ebs_volume2",
+      "ContainerDirectory": "/var/app/current/stage/opt/docker/target/winticket/snapshot"
+    }
+  ],
+  "Logging": "/tmp/logs"
 }
