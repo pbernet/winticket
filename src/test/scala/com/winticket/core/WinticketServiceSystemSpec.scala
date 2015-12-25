@@ -20,8 +20,8 @@ import io.gatling.http.funspec.GatlingHttpFunSpec
  */
 class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
 
-  val baseURL = "http://localhost:9000"
-  //val baseURL = "http://winticket.elasticbeanstalk.com"
+  //val baseURL = "http://localhost:9000"
+  val baseURL = "http://winticket.elasticbeanstalk.com"
   override def httpConf = {
     super.httpConf.header("Custom-Header", "gatling.io")
     super.httpConf.userAgentHeader("gatling.io")
