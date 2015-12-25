@@ -21,3 +21,7 @@ project/plugins/project/
 production.conf
 events_production.csv
 aws_rootkey.csv
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
