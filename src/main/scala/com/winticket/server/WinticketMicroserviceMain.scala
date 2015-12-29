@@ -26,9 +26,6 @@ object WinticketMicroserviceMain extends WinticketService {
       """-D(\S+)=(\S+)""".r
     for (jvmArg(name, value) <- args) System.setProperty(name, value)
 
-    logSubscriptions()
-    logWinners()
-
     log.info(s"Bind to: $httpInterface and: $httpPort")
     Http().bindAndHandle(routes, httpInterface, httpPort)
 

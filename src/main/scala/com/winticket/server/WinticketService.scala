@@ -12,17 +12,21 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.pattern.ask
 import akka.stream.io.SynchronousFileSink
 import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.util.Timeout
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
-import com.winticket.server.DrawingActorSupervisor.{CreateChild, Subscribtions, Winners}
+import com.winticket.server.DrawingActorSupervisor.{CreateChild, DrawingReports, Subscribtions}
 import com.winticket.util.{DataLoaderHelper, RenderHelper}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
+import scala.xml.Elem
 
 case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
 
@@ -51,12 +55,24 @@ trait WinticketService extends BaseService {
 
   }
 
-  def logSubscriptions(): Unit = {
-    supervisor ! Subscribtions
+  def getSubscriptions(): Elem = {
+    implicit val timeout = Timeout(5 seconds)
+    val future: Future[List[List[SubscriptionRecord]]] = ask(supervisor, Subscribtions).mapTo[List[List[SubscriptionRecord]]]
+    val listOfList = Await.result(future, timeout.duration).asInstanceOf[List[List[SubscriptionRecord]]]
+    <ul>{listOfList.map {  eachList =>
+      eachList.map { eachElement => <li>{eachElement.toString()}</li>
+      }}
+    }</ul>
   }
 
-  def logWinners(): Unit = {
-    supervisor ! Winners
+  def getDrawingReports(): Elem = {
+    implicit val timeout = Timeout(5 seconds)
+    val future: Future[List[DrawingReport]] = ask(supervisor, DrawingReports).mapTo[List[DrawingReport]]
+
+    val listOfSubscriptions = Await.result(future, timeout.duration).asInstanceOf[List[DrawingReport]]
+    <ul>{listOfSubscriptions.map {eachElement => <li>{eachElement.toString()}</li>
+      }
+      }</ul>
   }
 
   def isIPValid(clientIP: String): Boolean = {
@@ -137,8 +153,8 @@ trait WinticketService extends BaseService {
           val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
           if (isIPValid(clientIPString)) {
 
-            // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation could be sent to user
-            // Ask DrawingActor for State - or via isDrawingExecuted  and render html response to user when in postDrawing state
+            // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
+            // Ask DrawingActor for State - or via isDrawingExecuted
             supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString)
 
             complete {
@@ -168,18 +184,23 @@ trait WinticketService extends BaseService {
         log.info("User is: " + user.username)
 
         (get & path(Segment)) { command =>
-          if (command == "startDrawings") supervisor ! DrawWinner
-
-          //Debug response
-          complete {
-            <html>
-              <body>
-                Command is:
-                { command }
-                User is:
-                { user.username }
-              </body>
-            </html>
+          command match {
+            case "startDrawings" => {
+              supervisor ! DrawWinner
+              complete(HttpResponse(status = StatusCodes.OK, entity = "Drawings for all events started..."))
+            }
+            case "showReport" => {
+              complete {
+                <html>
+                  <body>
+                    DrawingReports: <br/>
+                    { getDrawingReports() }
+                    Subscriptions:
+                    { getSubscriptions() }
+                  </body>
+                </html>
+              }
+            }
           }
         }
       }

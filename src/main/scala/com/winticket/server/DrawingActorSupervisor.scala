@@ -6,11 +6,12 @@ import akka.pattern.ask
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.util.Timeout
 import com.winticket.server.DrawingActor._
-import com.winticket.server.DrawingActorSupervisor.{CreateChild, Subscribtions, SupervisorState, Winners}
+import com.winticket.server.DrawingActorSupervisor.{CreateChild, DrawingReports, Subscribtions, SupervisorState}
 import com.winticket.server.DrawingProtocol.DrawingActorCreated
 
-import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
 
 object DrawingActorSupervisor {
 
@@ -19,7 +20,7 @@ object DrawingActorSupervisor {
   sealed trait CommandSupervisor
   case class CreateChild(createDrawing: CreateDrawing) extends CommandSupervisor
   case object Subscribtions extends CommandSupervisor
-  case object Winners extends CommandSupervisor
+  case object DrawingReports extends CommandSupervisor
 
   case class SupervisorState(actorPaths: List[String] = Nil) {
 
@@ -74,23 +75,43 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       }
     }
     case Subscribtions => {
+      import context.dispatcher
       implicit val timeout = Timeout(5 seconds)
+
+      var listOfFutures = List[Future[List[SubscriptionRecord]]]()
+      val origSender = sender()
+
       context.children.foreach { drawingActor =>
-        val subscriptionsFuture = drawingActor ? GetSubscribtions
-        log.info(s"------- DrawingActor -----> $GetSubscribtions")
-        val subscriptions = Await.result(subscriptionsFuture, timeout.duration)
-        val size = subscriptions.asInstanceOf[List[String]].size
-        log.info(s"<------ DrawingActor ------ Size: $size Data: $subscriptions")
+        val subscriptionsFuture: Future[List[SubscriptionRecord]] = ask(drawingActor, GetSubscribtions).mapTo[List[SubscriptionRecord]]
+        listOfFutures = subscriptionsFuture :: listOfFutures
+      }
+      val futureList = Future.sequence(listOfFutures)
+      futureList onComplete {
+        case Success(result)  => origSender ! result
+        case Failure(failure) => log.error(s"Error occurred while collecting subscriptions. Details: $failure")
       }
     }
-    case Winners => {
+    case DrawingReports => {
+      import context.dispatcher
       implicit val timeout = Timeout(5 seconds)
+
+      var listOfFutures = List[Future[DrawingReport]]()
+      val origSender = sender()
+
       context.children.foreach { drawingActor =>
-        val winnerFuture = drawingActor ? GetWinnerEMail
-        log.info(s"------- DrawingActor -----> $GetWinnerEMail")
-        val winnerEMail = Await.result(winnerFuture, timeout.duration)
-        log.info(s"<------ DrawingActor ------ WinnerEMail: $winnerEMail")
+
+        val drawingsFuture: Future[DrawingReport] = ask(drawingActor, GetDrawingReport).mapTo[DrawingReport]
+        listOfFutures = drawingsFuture :: listOfFutures
+
       }
+
+      val futureList = Future.sequence(listOfFutures)
+      futureList onComplete {
+        case Success(result)  => origSender ! result
+        case Failure(failure) => log.error(s"Error occurred while collecting DrawingReports. Details: $failure")
+      }
+
+
     }
     case subscribe @ Subscribe(tennantID, tennantYear, drawingEventID, subscriptionEMail, clientIPString) => {
       context.children.foreach(drawingActor => drawingActor ! subscribe)
