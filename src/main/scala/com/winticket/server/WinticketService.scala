@@ -8,6 +8,7 @@ import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-cache`, `no-store`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
@@ -66,13 +67,15 @@ trait WinticketService extends BaseService {
   }
 
   def getDrawingReports(): Elem = {
-    implicit val timeout = Timeout(5 seconds)
-    val future: Future[List[DrawingReport]] = ask(supervisor, DrawingReports).mapTo[List[DrawingReport]]
-
-    val listOfSubscriptions = Await.result(future, timeout.duration).asInstanceOf[List[DrawingReport]]
-    <ul>{listOfSubscriptions.map {eachElement => <li>{eachElement.toString()}</li>
+    <ul>{drawingReports().map {eachElement => <li>{eachElement.toString()}</li>
       }
       }</ul>
+  }
+
+  private def drawingReports(): List[DrawingReport] = {
+    implicit val timeout = Timeout(5 seconds)
+    val future: Future[List[DrawingReport]] = ask(supervisor, DrawingReports).mapTo[List[DrawingReport]]
+    Await.result(future, timeout.duration).asInstanceOf[List[DrawingReport]]
   }
 
   def isIPValid(clientIP: String): Boolean = {
@@ -140,43 +143,60 @@ trait WinticketService extends BaseService {
 
   val routes = logRequestResult("winticket") {
 
-    //TODO Make param email accessible via "url parameter(s)"
-    //TODO Param Extract tennantYear and drawingEventID as String
-
     //A Map is required for the route. Convert the Java based listOfTennants...
     val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
 
     pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
+     (get & path(Segment)) { commandORsubscriptionEMail =>
 
-      (get & path(Segment)) { subscriptionEMail =>
-        extractClientIP { clientIP =>
-          val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
-          if (isIPValid(clientIPString)) {
+       extractClientIP { clientIP =>
+         val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
+         if (isIPValid(clientIPString)) {
 
-            // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
-            // Ask DrawingActor for State - or via isDrawingExecuted
-            supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, subscriptionEMail, clientIPString)
+           commandORsubscriptionEMail match {
+             case "subscribe" => {
+               val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString() ).getOrElse(DrawingReport()).drawingEventName
+               val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
+               val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
+               complete {
+                 HttpResponse(
+                   status = OK,
+                   headers = List(cacheHeaders),
+                   entity = HttpEntity(
+                     MediaTypes.`text/html`,
+                     RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
+                   ))
+               }
 
-            complete {
-              HttpResponse(
-                status = OK,
-                entity = HttpEntity(
-                  MediaTypes.`text/html`,
-                  RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> subscriptionEMail))
-                ))
-            }
-          } else {
-            complete {
-              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
-              <html>
-                <body>
-                  <status>IP Check failed - your subscription was not accepted</status>
-                </body>
-              </html>
-            }
-          }
-        }
-      }
+             }
+             case _ => {
+
+               // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
+               // Ask DrawingActor for State - or via isDrawingExecuted
+               supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
+
+               complete {
+                 HttpResponse(
+                   status = OK,
+                   entity = HttpEntity(
+                     MediaTypes.`text/html`,
+                     RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
+                   ))
+               }
+             }
+           }
+         } else {
+           complete {
+             //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
+             <html>
+               <body>
+                 <status>IP Check failed - your subscription was not accepted</status>
+               </body>
+             </html>
+           }
+         }
+       }
+     }
 
     } ~ pathPrefix("admin" / "cmd") {
       authenticateBasic(realm = "admin area", basicAuthenticator) { user =>

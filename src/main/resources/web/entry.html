@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1.0">
+  <title>Mitmachen und Gewinnen</title>
+  <link href="http://fonts.googleapis.com/css?family=Oswald:700" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="./../../../css/standardize.css">
+  <link rel="stylesheet" href="./../../../css/entrypage-grid.css">
+  <link rel="stylesheet" href="./../../../css/styles.css">
+</head>
+<body class="body page-entrypage clearfix">
+<form id="form-id" action="%%pathToConfirmationPage%%" method="get">
+<div class="element element-1"></div>
+  <p id="title" class="text text-1"><strong>Gewinnen Sie 2 Tickets für: %%drawingEventName%%</strong></p>
+  <div id="entry" class="container clearfix">
+    <label id="email_text" class="point-text">Bitte geben Sie ihre EMail Adresse ein:</label>
+    <input id="email" class="_input" name="signup" placeholder="name@email.com" type="email" autofocus required onchange="updateActionPath()">
+    <button id="submit-button" type="submit" class="_button">Mitmachen und Gewinnen</button>
+  </div>
+</form>
+
+</body>
+<script>
+function updateActionPath() {
+    var form = document.getElementById("form-id");
+
+    if (form.checkValidity()) {
+      form.action =  form.action + "/" + document.getElementById("email").value;
+    }
+    }
+</script>
+</html>

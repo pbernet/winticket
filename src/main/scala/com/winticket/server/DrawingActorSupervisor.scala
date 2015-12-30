@@ -6,7 +6,7 @@ import akka.pattern.ask
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import akka.util.Timeout
 import com.winticket.server.DrawingActor._
-import com.winticket.server.DrawingActorSupervisor.{CreateChild, DrawingReports, Subscribtions, SupervisorState}
+import com.winticket.server.DrawingActorSupervisor._
 import com.winticket.server.DrawingProtocol.DrawingActorCreated
 
 import scala.concurrent.Future
@@ -99,10 +99,8 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       val origSender = sender()
 
       context.children.foreach { drawingActor =>
-
         val drawingsFuture: Future[DrawingReport] = ask(drawingActor, GetDrawingReport).mapTo[DrawingReport]
         listOfFutures = drawingsFuture :: listOfFutures
-
       }
 
       val futureList = Future.sequence(listOfFutures)
@@ -110,8 +108,6 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
         case Success(result)  => origSender ! result
         case Failure(failure) => log.error(s"Error occurred while collecting DrawingReports. Details: $failure")
       }
-
-
     }
     case subscribe @ Subscribe(tennantID, tennantYear, drawingEventID, subscriptionEMail, clientIPString) => {
       context.children.foreach(drawingActor => drawingActor ! subscribe)
