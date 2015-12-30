@@ -29,7 +29,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 import scala.xml.Elem
 
-case class IpInfo(ip: String, country: Option[String], city: Option[String], latitude: Option[Double], longitude: Option[Double])
+case class IpInfo(ip: String, country_code: Option[String], country_name: Option[String], region_code: Option[String], region_name: Option[String], city: Option[String], time_zone: Option[String], latitude: Option[Double], longitude: Option[Double], metro_code: Option[Int])
 
 case class UserPass(username: String, password: String)
 
@@ -45,11 +45,11 @@ trait WinticketService extends BaseService {
 
   val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
-  lazy val telizeConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
+  lazy val geoipConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
     //Use Connection-Level Client-Side API
-    Http().outgoingConnection(telizeHost, telizePort)
+    Http().outgoingConnection(geoipHost, geoipPort)
 
-  def telizeRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(telizeConnectionFlow).runWith(Sink.head)
+  def geoipRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(geoipConnectionFlow).runWith(Sink.head)
 
   def createDrawing(createDrawing: CreateDrawing): Unit = {
     supervisor ! CreateChild(createDrawing)
@@ -60,16 +60,19 @@ trait WinticketService extends BaseService {
     implicit val timeout = Timeout(5 seconds)
     val future: Future[List[List[SubscriptionRecord]]] = ask(supervisor, Subscribtions).mapTo[List[List[SubscriptionRecord]]]
     val listOfList = Await.result(future, timeout.duration).asInstanceOf[List[List[SubscriptionRecord]]]
-    <ul>{listOfList.map {  eachList =>
-      eachList.map { eachElement => <li>{eachElement.toString()}</li>
-      }}
+    <ul>{
+      listOfList.map { eachList =>
+        eachList.map { eachElement => <li>{ eachElement.toString() }</li>
+        }
+      }
     }</ul>
   }
 
   def getDrawingReports(): Elem = {
-    <ul>{drawingReports().map {eachElement => <li>{eachElement.toString()}</li>
+    <ul>{
+      drawingReports().map { eachElement => <li>{ eachElement.toString() }</li>
       }
-      }</ul>
+    }</ul>
   }
 
   private def drawingReports(): List[DrawingReport] = {
@@ -85,13 +88,13 @@ trait WinticketService extends BaseService {
       if (clientIP == "127.0.0.1" || clientIP == "localhost") {
         true
       } else {
-        val responseFuture = telizeRequest(RequestBuilding.Get(s"/geoip/$clientIP")).flatMap { response =>
+        val responseFuture = geoipRequest(RequestBuilding.Get(s"/json/$clientIP")).flatMap { response =>
           response.status match {
             case OK => {
               Unmarshal(response.entity).to[IpInfo].map {
                 ipinfo =>
                   {
-                    val countryString = ipinfo.country.getOrElse("N/A country from telize.com")
+                    val countryString = ipinfo.country_name.getOrElse("N/A country from telize.com")
                     if (countryString == "Switzerland") {
                       log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
                       Future.successful(true)
@@ -106,7 +109,7 @@ trait WinticketService extends BaseService {
             }
             case BadRequest => Future.successful(false)
             case _ => Unmarshal(response.entity).to[String].flatMap { entity =>
-              val error = s"The request to telize.com failed with status code ${response.status} and entity $entity"
+              val error = s"The request to the geoip service failed with status code ${response.status} and entity $entity"
               log.error(error)
               Future.failed(new IOException(error))
             }
@@ -147,56 +150,56 @@ trait WinticketService extends BaseService {
     val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
 
     pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
-     (get & path(Segment)) { commandORsubscriptionEMail =>
+      (get & path(Segment)) { commandORsubscriptionEMail =>
 
-       extractClientIP { clientIP =>
-         val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
-         if (isIPValid(clientIPString)) {
+        extractClientIP { clientIP =>
+          val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
+          if (isIPValid(clientIPString)) {
 
-           commandORsubscriptionEMail match {
-             case "subscribe" => {
-               val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString() ).getOrElse(DrawingReport()).drawingEventName
-               val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
-               val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
-               complete {
-                 HttpResponse(
-                   status = OK,
-                   headers = List(cacheHeaders),
-                   entity = HttpEntity(
-                     MediaTypes.`text/html`,
-                     RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
-                   ))
-               }
+            commandORsubscriptionEMail match {
+              case "subscribe" => {
+                val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString()).getOrElse(DrawingReport()).drawingEventName
+                val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
+                val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
+                complete {
+                  HttpResponse(
+                    status = OK,
+                    headers = List(cacheHeaders),
+                    entity = HttpEntity(
+                      MediaTypes.`text/html`,
+                      RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
+                    ))
+                }
 
-             }
-             case _ => {
+              }
+              case _ => {
 
-               // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
-               // Ask DrawingActor for State - or via isDrawingExecuted
-               supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
+                // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
+                // Ask DrawingActor for State - or via isDrawingExecuted
+                supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
 
-               complete {
-                 HttpResponse(
-                   status = OK,
-                   entity = HttpEntity(
-                     MediaTypes.`text/html`,
-                     RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
-                   ))
-               }
-             }
-           }
-         } else {
-           complete {
-             //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
-             <html>
-               <body>
-                 <status>IP Check failed - your subscription was not accepted</status>
-               </body>
-             </html>
-           }
-         }
-       }
-     }
+                complete {
+                  HttpResponse(
+                    status = OK,
+                    entity = HttpEntity(
+                      MediaTypes.`text/html`,
+                      RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
+                    ))
+                }
+              }
+            }
+          } else {
+            complete {
+              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
+              <html>
+                <body>
+                  <status>IP Check failed - your subscription was not accepted</status>
+                </body>
+              </html>
+            }
+          }
+        }
+      }
 
     } ~ pathPrefix("admin" / "cmd") {
       authenticateBasic(realm = "admin area", basicAuthenticator) { user =>
@@ -213,7 +216,7 @@ trait WinticketService extends BaseService {
               complete {
                 <html>
                   <body>
-                    DrawingReports: <br/>
+                    DrawingReports:<br/>
                     { getDrawingReports() }
                     Subscriptions:
                     { getSubscriptions() }

@@ -11,7 +11,7 @@ trait Config {
   private val httpConfig = config.getConfig("http")
   private val appConfig = config.getConfig("app")
   private val smtpConfig = config.getConfig("smtp")
-  private val telizeConfig = config.getConfig("services")
+  private val geoipConfig = config.getConfig("services")
   private val securityConfig = config.getConfig("security")
   private val envConfig = config.getConfig("env")
   private val testConfig = config.getConfig("test")
@@ -32,8 +32,8 @@ trait Config {
   val user = smtpConfig.getString("user")
   val password = smtpConfig.getString("password")
 
-  val telizeHost = telizeConfig.getString("telizeHost")
-  val telizePort = telizeConfig.getInt("telizePort")
+  val geoipHost = geoipConfig.getString("geoipHost")
+  val geoipPort = geoipConfig.getInt("geoipPort")
 
   val isCheck4SwissIPEnabled = securityConfig.getBoolean("isCheck4SwissIPEnabled")
   val adminUsername = securityConfig.getString("adminUsername")
