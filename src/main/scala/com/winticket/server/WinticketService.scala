@@ -59,7 +59,7 @@ trait WinticketService extends BaseService {
   def getSubscriptions(): Elem = {
     implicit val timeout = Timeout(5 seconds)
     val future: Future[List[List[SubscriptionRecord]]] = ask(supervisor, Subscribtions).mapTo[List[List[SubscriptionRecord]]]
-    val listOfList = Await.result(future, timeout.duration).asInstanceOf[List[List[SubscriptionRecord]]]
+    val listOfList = Await.result(future, timeout.duration)
     <ul>{
       listOfList.map { eachList =>
         eachList.map { eachElement => <li>{ eachElement.toString() }</li>
@@ -76,9 +76,9 @@ trait WinticketService extends BaseService {
   }
 
   private def drawingReports(): List[DrawingReport] = {
-    implicit val timeout = Timeout(5 seconds)
+    implicit val timeout = Timeout(10 seconds)
     val future: Future[List[DrawingReport]] = ask(supervisor, DrawingReports).mapTo[List[DrawingReport]]
-    Await.result(future, timeout.duration).asInstanceOf[List[DrawingReport]]
+    Await.result(future, timeout.duration)
   }
 
   def isIPValid(clientIP: String): Boolean = {
@@ -88,7 +88,7 @@ trait WinticketService extends BaseService {
       if (clientIP == "127.0.0.1" || clientIP == "localhost") {
         true
       } else {
-        val responseFuture = geoipRequest(RequestBuilding.Get(s"/json/$clientIP")).flatMap { response =>
+        val responseFuture: Future[Boolean] = geoipRequest(RequestBuilding.Get(s"/json/$clientIP")).flatMap { response =>
           response.status match {
             case OK => {
               Unmarshal(response.entity).to[IpInfo].map {
@@ -97,15 +97,13 @@ trait WinticketService extends BaseService {
                     val countryString = ipinfo.country_name.getOrElse("N/A country from telize.com")
                     if (countryString == "Switzerland") {
                       log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
-                      Future.successful(true)
+                      true
                     } else {
                       log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
-                      Future.successful(false)
+                      false
                     }
                   }
               }
-              Future.successful(false)
-
             }
             case BadRequest => Future.successful(false)
             case _ => Unmarshal(response.entity).to[String].flatMap { entity =>
@@ -115,14 +113,9 @@ trait WinticketService extends BaseService {
             }
           }
         }
-
-        responseFuture.onSuccess {
-          case result => result
-        }
-        responseFuture.onFailure {
-          case t => log.error("An error has occurred: " + t.getMessage)
-        }
-        false
+        implicit val timeout = Timeout(10 seconds)
+        log.info("Waiting for evaluation...")
+        Await.result(responseFuture, timeout.duration)
       }
     } else {
       true
