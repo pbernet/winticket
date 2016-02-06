@@ -11,6 +11,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-cache`, `no-store`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
+import akka.http.scaladsl.server.StandardRoute
 import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
@@ -40,6 +41,8 @@ class TryIterator[T](it: Iterator[T]) extends Iterator[Try[T]] {
 }
 
 trait WinticketService extends BaseService {
+
+  private val emailRegex = """^[a-zA-Z0-9\.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$""".r
 
   protected implicit val system = ActorSystem("winticket")
 
@@ -122,6 +125,13 @@ trait WinticketService extends BaseService {
     }
   }
 
+  def isEMailValid(e: String): Boolean = e match {
+    case null                                          => false
+    case e if e.trim.isEmpty                           => false
+    case e if emailRegex.findFirstMatchIn(e).isDefined => true
+    case _                                             => false
+  }
+
   def basicAuthenticator: Authenticator[UserPass] = {
     case missing @ Missing => {
       log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
@@ -142,6 +152,47 @@ trait WinticketService extends BaseService {
     //A Map is required for the route. Convert the Java based listOfTennants...
     val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
 
+    def handleEmail(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIPString: String): StandardRoute = {
+      if (isEMailValid(commandORsubscriptionEMail)) {
+
+        // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
+        // Ask DrawingActor for State - or via isDrawingExecuted
+        supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
+
+        complete {
+          HttpResponse(
+            status = OK,
+            entity = HttpEntity(
+              MediaTypes.`text/html`,
+              RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
+            ))
+        }
+      } else {
+        complete {
+          <html>
+            <body>
+              <status>EMail Check failed - Please enter a valid EMail</status>
+            </body>
+          </html>
+        }
+      }
+    }
+
+    def handleCommand(tennantID: String, tennantYear: Int, drawingEventID: Int): StandardRoute = {
+      val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString()).getOrElse(DrawingReport()).drawingEventName
+      val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
+      val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
+      complete {
+        HttpResponse(
+          status = OK,
+          headers = List(cacheHeaders),
+          entity = HttpEntity(
+            MediaTypes.`text/html`,
+            RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
+          ))
+      }
+    }
+
     pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
       (get & path(Segment)) { commandORsubscriptionEMail =>
 
@@ -150,40 +201,11 @@ trait WinticketService extends BaseService {
           if (isIPValid(clientIPString)) {
 
             commandORsubscriptionEMail match {
-              case "subscribe" => {
-                val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString()).getOrElse(DrawingReport()).drawingEventName
-                val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
-                val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
-                complete {
-                  HttpResponse(
-                    status = OK,
-                    headers = List(cacheHeaders),
-                    entity = HttpEntity(
-                      MediaTypes.`text/html`,
-                      RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
-                    ))
-                }
-
-              }
-              case _ => {
-
-                // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
-                // Ask DrawingActor for State - or via isDrawingExecuted
-                supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
-
-                complete {
-                  HttpResponse(
-                    status = OK,
-                    entity = HttpEntity(
-                      MediaTypes.`text/html`,
-                      RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
-                    ))
-                }
-              }
+              case "subscribe" => handleCommand(tennantID, tennantYear, drawingEventID)
+              case _ => handleEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPString)
             }
           } else {
             complete {
-              //http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/scala/http/common/xml-support.html
               <html>
                 <body>
                   <status>IP Check failed - your subscription was not accepted</status>

@@ -42,8 +42,8 @@ object DrawingActor {
     override def toString() = { s"$year,$eventID, $email,$ip,${date.toIsoDateTimeString()}" }
   }
 
-  case class DrawingReport(tennantID: String = "N/A", year: Int = 1970, eventID: String = "N/A", drawingEventDate: DateTime = DateTime.now, drawingEventName: String  = "N/A", winnerEMail: String = "N/A", uniqueSubscriptions: Int = 0, totalSubscriptions: Int = 0 ) {
-    override def toString() = { s"Event: $tennantID/$year/$eventID Date/Name: $drawingEventDate/$drawingEventName Winner: $winnerEMail Subscriptions: ($uniqueSubscriptions/$totalSubscriptions) "}
+  case class DrawingReport(tennantID: String = "N/A", year: Int = 1970, eventID: String = "N/A", drawingEventDate: DateTime = DateTime.now, drawingEventName: String = "N/A", winnerEMail: String = "N/A", uniqueSubscriptions: Int = 0, totalSubscriptions: Int = 0) {
+    override def toString() = { s"Event: $tennantID/$year/$eventID Date/Name: $drawingEventDate/$drawingEventName Winner: $winnerEMail Subscriptions: ($uniqueSubscriptions/$totalSubscriptions) " }
   }
 
   def props(tennantID: String) = Props(new DrawingActor(tennantID))
@@ -93,13 +93,12 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
   def uniqueSubscribtions = {
     //Prevent abuse: ignore re-subscriptions (= the size of the list of subscriptions can be anything from 1 to n)
-   state.get.subscriptions.groupBy(_.email)
+    state.get.subscriptions.groupBy(_.email)
   }
 
   def idString = {
     s"${state.get.tennantID}/${state.get.tennantYear}/${state.get.drawingEventID}"
   }
-
 
   //on startup of the actor these events are recovered
   val receiveRecover: Receive = {
@@ -166,7 +165,6 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       } else {
         if (drawingDate <= DateTime.now) {
           log.info(s"Starting drawing for: ${idString} and eventDate: $eventDate")
-
 
           val numberOfUniqueSubscriptions = uniqueSubscribtions.size
           if (uniqueSubscribtions.nonEmpty) {
