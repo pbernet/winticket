@@ -2,7 +2,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.2"
+version       := "0.0.3"
 scalaVersion  := "2.11.7"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -11,8 +11,7 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
-  val akkaStreamV      = "1.0"
-  val akkaV            = "2.4.0"
+  val akkaV            = "2.4.4"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
@@ -20,31 +19,30 @@ libraryDependencies ++= {
   val scalazScalaTestV = "0.2.3"
   Seq(
     "org.scalaz"        %% "scalaz-core"                          % scalazV,
-    "com.typesafe.akka" %% "akka-stream-experimental"             % akkaStreamV,
-    "com.typesafe.akka" %% "akka-http-core-experimental"          % akkaStreamV,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental"    % akkaStreamV,
-    "com.typesafe.akka" %% "akka-slf4j" % akkaV,
-    "ch.qos.logback"     % "logback-classic" % "1.1.3",
+    "com.typesafe.akka" %% "akka-http-experimental"               % akkaV,
+    "com.typesafe.akka" %% "akka-stream"                          % akkaV,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental"    % akkaV,
+    "com.typesafe.akka" %% "akka-slf4j"                           % akkaV,
+    "ch.qos.logback"     % "logback-classic"                      % "1.1.3",
 
-    //TODO Check purpose of leveldb libs
     "com.typesafe.akka" %% "akka-persistence"                     % akkaV,
     "org.iq80.leveldb"            % "leveldb"                     % "0.7",
     "org.fusesource.leveldbjni"   % "leveldbjni-all"              % "1.8",
 
     //needed for XHTML in HTTP Response
-    "com.typesafe.akka" %% "akka-http-xml-experimental"           % akkaStreamV,
+    "com.typesafe.akka" %% "akka-http-xml-experimental"           % akkaV,
 
     "org.apache.commons" % "commons-email"                        % apacheMailV,
-    "com.github.marklister" %% "product-collections" % productCollV,
+    "com.github.marklister" %% "product-collections"              % productCollV,
 
 
     "org.scalatest"     %% "scalatest"                            % scalaTestV       % "it,test",
     "org.scalamock"     %% "scalamock-scalatest-support"          % scalaMockV       % "it,test",
     "org.scalaz"        %% "scalaz-scalacheck-binding"            % scalazV          % "it,test",
     "org.typelevel"     %% "scalaz-scalatest"                     % scalazScalaTestV % "it,test",
-    "com.typesafe.akka" %% "akka-http-testkit-experimental"       % akkaStreamV      % "it,test",
+    "com.typesafe.akka" %% "akka-http-testkit-experimental"       % "2.0.4"          % "it,test",
     //needed for experimental ScalaTest/Gatling integration for REST API Testing
-    "io.gatling" % "gatling-test-framework" % "2.2.0-SNAPSHOT" % "it, test"
+    "io.gatling" % "gatling-test-framework" % "2.2.0" % "it, test"
 
   )
 }
