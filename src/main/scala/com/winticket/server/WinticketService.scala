@@ -12,13 +12,14 @@ import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.StandardRoute
-import akka.http.scaladsl.server.directives.UserCredentials.{Missing, Provided}
+import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
+import akka.http.scaladsl.settings.ConnectionPoolSettings
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
-import akka.stream.io.SynchronousFileSink
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
 import akka.util.Timeout
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
+import com.typesafe.config.ConfigFactory
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingActorSupervisor.{CreateChild, DrawingReports, Subscribtions}
@@ -49,10 +50,25 @@ trait WinticketService extends BaseService {
   val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
   lazy val geoipConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-    //Use Connection-Level Client-Side API
     Http().outgoingConnection(geoipHost, geoipPort)
 
+  //TODO Try to change form Connection-Level Client-Side API to Host-Level Client-Side API to set max-retries
+  //http://doc.akka.io/docs/akka/2.4.4/scala/http/client-side/host-level.html
+
+  //Feature: prevent Resource Starvation
+  //http://kazuhiro.github.io/scala/akka/akka-http/akka-streams/2016/01/31/connection-pooling-with-akka-http-and-source-queue.html
+
+  val config = ConfigFactory.load()
+  val connectionPoolSettings = ConnectionPoolSettings(config)
+
+  val geoipFlowViaConnectionPool = Http().cachedHostConnectionPool(geoipHost, geoipPort)
+
+  val poolClientFlow = Http().cachedHostConnectionPool[Int]("akka.io")
+
   def geoipRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(geoipConnectionFlow).runWith(Sink.head)
+
+  //TODO Does not compile anymore with newest version of akka-http
+  //def geoipRequestPool(request: HttpRequest) = Source.single(request).via(geoipFlowViaConnectionPool).runWith(Sink.head)
 
   def createDrawing(createDrawing: CreateDrawing): Unit = {
     supervisor ! CreateChild(createDrawing)
@@ -86,6 +102,8 @@ trait WinticketService extends BaseService {
 
   def isIPValid(clientIP: String): Boolean = {
 
+    //A sync check does not make sense because the geoip service is unreliable (Timeouts, service not available)
+    //TODO Implement an async solution with a retry
     if (isCheck4SwissIPEnabled) {
       log.info("Client IP is: " + clientIP)
       if (clientIP == "127.0.0.1" || clientIP == "localhost") {
@@ -97,7 +115,7 @@ trait WinticketService extends BaseService {
               Unmarshal(response.entity).to[IpInfo].map {
                 ipinfo =>
                   {
-                    val countryString = ipinfo.country_name.getOrElse("N/A country from telize.com")
+                    val countryString = ipinfo.country_name.getOrElse("N/A country from geoip service")
                     if (countryString == "Switzerland") {
                       log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
                       true
@@ -139,7 +157,7 @@ trait WinticketService extends BaseService {
     }
     case provided @ Provided(_) => {
       log.info(s"Received UserCredentials is: $provided")
-      if (provided.username == adminUsername && provided.verifySecret(adminPassword)) {
+      if (provided.identifier == adminUsername && provided.verify(adminPassword)) {
         Some(UserPass("admin", ""))
       } else {
         None
@@ -159,11 +177,12 @@ trait WinticketService extends BaseService {
         // Ask DrawingActor for State - or via isDrawingExecuted
         supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
 
+        val mediaTypeWithCharSet = MediaTypes.`text/html` withCharset HttpCharsets.`UTF-8`
         complete {
           HttpResponse(
             status = OK,
             entity = HttpEntity(
-              MediaTypes.`text/html`,
+              mediaTypeWithCharSet,
               RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
             ))
         }
@@ -182,12 +201,13 @@ trait WinticketService extends BaseService {
       val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString()).getOrElse(DrawingReport()).drawingEventName
       val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
       val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
+      val mediaTypeWithCharSet = MediaTypes.`text/html` withCharset HttpCharsets.`UTF-8`
       complete {
         HttpResponse(
           status = OK,
           headers = List(cacheHeaders),
           entity = HttpEntity(
-            MediaTypes.`text/html`,
+            mediaTypeWithCharSet,
             RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
           ))
       }
@@ -202,7 +222,7 @@ trait WinticketService extends BaseService {
 
             commandORsubscriptionEMail match {
               case "subscribe" => handleCommand(tennantID, tennantYear, drawingEventID)
-              case _ => handleEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPString)
+              case _           => handleEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPString)
             }
           } else {
             complete {
@@ -248,7 +268,7 @@ trait WinticketService extends BaseService {
           {
             val source = request.entity.dataBytes
             val outFile = new File("/tmp/outfile.dat")
-            val sink = SynchronousFileSink.create(outFile)
+            val sink = FileIO.toFile(outFile)
             val replyFuture = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
 
             onSuccess(replyFuture) { replyMsg =>

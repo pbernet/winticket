@@ -10,8 +10,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
-import akka.stream.io.SynchronousFileSource
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{FileIO, Source}
 import akka.util.ByteString
 
 import scala.concurrent.Future
@@ -74,13 +73,15 @@ object TestMultipartFileUpload extends App {
 
   def createEntity(file: File): Future[RequestEntity] = {
     require(file.exists())
+    val source = FileIO.fromFile(file, chunkSize = 100000) // the chunk size here is currently critical for performance
+    val mediaTypeWithCharSet = MediaTypes.`text/csv` withCharset HttpCharsets.`UTF-8`
+    val indef = HttpEntity.IndefiniteLength(mediaTypeWithCharSet, source)
     val formData =
       Multipart.FormData(
         Source.single(
           Multipart.FormData.BodyPart(
             "test",
-            HttpEntity(MediaTypes.`application/octet-stream`, file.length(), SynchronousFileSource(file, chunkSize = 100000)), // the chunk size here is currently critical for performance
-            Map("filename" -> file.getName))))
+            indef)))
     Marshal(formData).to[RequestEntity]
   }
 

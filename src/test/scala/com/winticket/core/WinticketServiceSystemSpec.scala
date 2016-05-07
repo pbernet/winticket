@@ -1,7 +1,5 @@
 package com.winticket.core
 
-import java.net.InetAddress
-
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import io.gatling.http.funspec.GatlingHttpFunSpec
@@ -25,23 +23,22 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
   override def httpConf = {
     super.httpConf.header("Custom-Header", "gatling.io")
     super.httpConf.userAgentHeader("gatling.io")
-    //bind the sockets from a specific local address instead of the default one (127.0.0.1)
-    //TODO This works only for pber mac
-    val localAddress = InetAddress.getByName("192.168.1.51")
-    super.httpConf.localAddress(localAddress: InetAddress)
+    //Bind the sockets from a specific local address instead of 127.0.0.1
+    //For now: fill in manually IP of en0/en1
+    super.httpConf.localAddress("192.168.1.54")
   }
 
   //simulate a redundant subscription
   spec {
-    http("gruenfels/2016/57")
-      .get("/gruenfels/2016/57/" + mailAccount1)
+    http("gruenfels/2016/49")
+      .get("/gruenfels/2016/49/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
 
   spec {
-    http("gruenfels/2016/57")
-      .get("/gruenfels/2016/57/" + mailAccount1)
+    http("gruenfels/2016/49")
+      .get("/gruenfels/2016/49/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }
@@ -72,20 +69,6 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
   spec {
     http("gruenfels/2016/51")
       .get("/gruenfels/2016/51/" + mailAccount1)
-      .check(status.is(200))
-    //.check(xpath("/html/body/status/text()").is("OK"))
-  }
-
-  spec {
-    http("gruenfels/2016/52")
-      .get("/gruenfels/2016/52/" + mailAccount1)
-      .check(status.is(200))
-    //.check(xpath("/html/body/status/text()").is("OK"))
-  }
-
-  spec {
-    http("gruenfels/2016/53")
-      .get("/gruenfels/2016/53/" + mailAccount1)
       .check(status.is(200))
     //.check(xpath("/html/body/status/text()").is("OK"))
   }

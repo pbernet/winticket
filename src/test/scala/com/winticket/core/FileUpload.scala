@@ -8,16 +8,15 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
-import akka.stream.io.SynchronousFileSource
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{FileIO, Source}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
- * Upload the test data file via Http
- * Has the sideeffect, that the file on the server contains Metainformation, don't know why...
- */
+  * Test client for upload the test data file via Http
+  * Sideeffect: the uploaded file on the server contains Metainformation at the beginning of the file don't know why...
+  */
 object FileUpload extends App {
 
   implicit val system = ActorSystem("ServerTest")
@@ -26,13 +25,15 @@ object FileUpload extends App {
 
   def createEntity(file: File): Future[RequestEntity] = {
     require(file.exists())
+    val source = FileIO.fromFile(file, chunkSize = 100000) // the chunk size here is currently critical for performance
+    val mediaTypeWithCharSet = MediaTypes.`text/csv` withCharset HttpCharsets.`UTF-8`
+    val indef = HttpEntity.IndefiniteLength(mediaTypeWithCharSet, source)
     val formData =
       Multipart.FormData(
         Source.single(
           Multipart.FormData.BodyPart(
             "uploadtest",
-            HttpEntity(MediaTypes.`text/csv`, file.length(), SynchronousFileSource(file, chunkSize = 100000)), // the chunk size here is currently critical for performance
-            Map("filename" -> file.getName))))
+            indef)))
     Marshal(formData).to[RequestEntity]
   }
 
