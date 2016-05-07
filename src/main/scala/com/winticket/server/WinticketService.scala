@@ -259,10 +259,13 @@ trait WinticketService extends BaseService {
                 </html>
               }
             }
+            case "fileUpload" => {
+              getFromResource("admin/fileupload.html")
+            }
           }
         }
       }
-    } ~ path("upload") {
+    } ~ path("uploaddata") {
       (post & extractRequest) {
         request =>
           {
@@ -285,7 +288,7 @@ trait WinticketService extends BaseService {
             }
           }
       }
-      //All the static stuff
-    } ~ path("")(getFromResource("")) ~ getFromResourceDirectory("web")
+      //Public resources and admin js resources
+    } ~ getFromResourceDirectory("web")
   }
 }
