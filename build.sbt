@@ -1,3 +1,5 @@
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+
 import scalariform.formatter.preferences._
 
 name          := """winticket"""
@@ -68,11 +70,13 @@ dockerExposedVolumes := Seq("/var/app/current/stage/opt/docker/target/winticket/
 //needed for experimental ScalaTest/Gatling integration for REST API Testing
 resolvers +=
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers += Resolver.typesafeRepo("releases")
 
 ScalariformKeys.preferences := ScalariformKeys.preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(AlignSingleLineCaseStatements.MaxArrowIndent, 100)
   .setPreference(DoubleIndentClassDeclaration, true)
+  .setPreference(SpacesAroundMultiImports, false)
 
 initialCommands := """|import scalaz._
                      |import Scalaz._

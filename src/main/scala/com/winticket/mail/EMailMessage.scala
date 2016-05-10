@@ -11,11 +11,13 @@ import scala.concurrent.duration.FiniteDuration
  * @param text alternative simple text
  * @param html html body
  */
-case class EMailMessage(subject: String,
+case class EMailMessage(
+  subject: String,
   recipient: String,
   from: String,
   text: Option[String] = None,
   html: Option[String] = None,
   smtpConfig: SmtpConfig,
   retryOn: FiniteDuration,
-  var deliveryAttempts: Int = 0)
+  var deliveryAttempts: Int = 0
+)

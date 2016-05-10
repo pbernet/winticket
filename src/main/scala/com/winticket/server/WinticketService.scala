@@ -184,7 +184,8 @@ trait WinticketService extends BaseService {
             entity = HttpEntity(
               mediaTypeWithCharSet,
               RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
-            ))
+            )
+          )
         }
       } else {
         complete {
@@ -209,7 +210,8 @@ trait WinticketService extends BaseService {
           entity = HttpEntity(
             mediaTypeWithCharSet,
             RenderHelper.getFromResourceRenderedWith("/web/entry.html", Map("drawingEventName" -> drawingEventName, "pathToConfirmationPage" -> pathToConfirmationPage))
-          ))
+          )
+        )
       }
     }
 

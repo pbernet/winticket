@@ -9,9 +9,11 @@ package com.winticket.mail
  * @param user the smtp user
  * @param password the smtp password
  */
-case class SmtpConfig(tls: Boolean = false,
+case class SmtpConfig(
+  tls: Boolean = false,
   ssl: Boolean = false,
   port: Int = 25,
   host: String,
   user: String,
-  password: String)
+  password: String
+)
