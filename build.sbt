@@ -4,7 +4,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.3"
+version       := "0.0.4"
 scalaVersion  := "2.11.7"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -13,7 +13,7 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
-  val akkaV            = "2.4.4"
+  val akkaV            = "2.4.7"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
