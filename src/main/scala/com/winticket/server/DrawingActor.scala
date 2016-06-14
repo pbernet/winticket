@@ -2,11 +2,12 @@ package com.winticket.server
 
 import akka.actor.{ActorLogging, Props}
 import akka.http.scaladsl.model.DateTime
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import com.winticket.core.Config
 import com.winticket.mail.{EMailMessage, EMailService, SmtpConfig}
 import com.winticket.server.DrawingActor._
-import com.winticket.server.DrawingProtocol.{DrawWinnerExecuted, DrawingCreated, DrawingEvent, Subscribed}
+import com.winticket.server.DrawingActorSupervisor.RemoveSubscription
+import com.winticket.server.DrawingProtocol._
 import com.winticket.util.RenderHelper
 
 import scala.concurrent.duration.DurationInt
@@ -29,10 +30,10 @@ object DrawingActor {
 
   case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, drawingLinkToTicket: String, drawinSsecurityCodeForTicket: String, subscriptions: Seq[SubscriptionRecord] = Nil) {
     def updated(evt: DrawingEvent): DrawingState = evt match {
-      case Subscribed(year, eventID, email, ip, date) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail, drawingLinkToTicket, drawinSsecurityCodeForTicket,
-        SubscriptionRecord(year, eventID, email, ip, date) +: subscriptions)
-      case DrawWinnerExecuted(winnerEMail) => copy(tennantID, tennantYear, tennantEMail, drawingEventID, drawingEventName, drawingEventDate, drawingWinnerEMail = Some(winnerEMail), drawingLinkToTicket, drawinSsecurityCodeForTicket, subscriptions)
-      case _                               => this
+      case Subscribed(year, eventID, email, ip, date) => copy(subscriptions = SubscriptionRecord(year, eventID, email, ip, date) +: subscriptions)
+      case SubscriptionRemoved(_, _, _, clientIP)     => copy(subscriptions = subscriptions.filterNot(_.ip == clientIP.get))
+      case DrawWinnerExecuted(winnerEMail)            => copy(drawingWinnerEMail = Some(winnerEMail))
+      case _                                          => this
     }
 
     def totalSubscriptions = subscriptions.length
@@ -60,10 +61,7 @@ object DrawingActor {
  *  - receiveCreate (aka preDrawing)
  *  - receiveCommands (aka whileDrawing)
  *  - postDrawing (This is the final state, the drawing is in the past. Only queries are accepted)
- *
- * @param actorID the tennantID
  */
-
 class DrawingActor(actorID: String) extends PersistentActor with ActorLogging with Config {
 
   import context.dispatcher
@@ -112,7 +110,8 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       state = Some(snapshot)
       context.become(receiveCommands)
     }
-    case msg => log.warning(s"Received unknown message for state receiveRecover - do nothing. Message is: $msg")
+    case RecoveryCompleted => log.info("RecoveryCompleted")
+    case msg               => log.warning(s"Received unknown message for state receiveRecover - do nothing. Message is: $msg")
   }
 
   val receiveCreate: Receive = {
@@ -151,7 +150,12 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
         log.debug(s"Subscribe for event: $eventID is ignored by: $persistenceId")
       }
     }
-
+    case RemoveSubscription(iPCheckRecord) => {
+      persist(SubscriptionRemoved(tennantID = iPCheckRecord.tennantID, tennantYear = iPCheckRecord.tennantYear, drawingEventID = iPCheckRecord.drawingEventID, clientIP = iPCheckRecord.clientIP))(evt => {
+        log.info(s"All SubscriptionRemoved for IP: ${iPCheckRecord.clientIP} for Drawing: ${idString}")
+        updateState(evt)
+      })
+    }
     case DrawWinner => {
       log.info("(Scheduled) command DrawWinner recieved")
       val eventDate = state.get.drawingEventDate

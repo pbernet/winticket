@@ -3,11 +3,12 @@ package com.winticket.server
 import akka.actor.SupervisorStrategy.{Escalate, Restart}
 import akka.actor.{ActorLogging, OneForOneStrategy, Terminated}
 import akka.pattern.ask
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import akka.util.Timeout
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingActorSupervisor._
 import com.winticket.server.DrawingProtocol.DrawingActorCreated
+import com.winticket.server.GeoIPCheckerActor.IPCheckRecord
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -19,6 +20,7 @@ object DrawingActorSupervisor {
 
   sealed trait CommandSupervisor
   case class CreateChild(createDrawing: CreateDrawing) extends CommandSupervisor
+  case class RemoveSubscription(record: IPCheckRecord) extends CommandSupervisor
   case object Subscribtions extends CommandSupervisor
   case object DrawingReports extends CommandSupervisor
 
@@ -55,12 +57,15 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       context.actorOf(DrawingActor.props(evt.actorPath), evt.actorPath)
     }
     case SnapshotOffer(_, snapshot: SupervisorState) => state = snapshot
+    case RecoveryCompleted                           => log.info("RecoveryCompleted")
+    case msg                                         => log.warning(s"Received unknown message for state receiveRecover - do nothing. Message is: $msg")
   }
 
   val receiveCommand: Receive = {
     case CreateChild(createDrawing) => {
       val uniqueActorName = "DrawingActor-" + createDrawing.tennantID + "-" + createDrawing.drawingEventID
-      if (context.child(uniqueActorName).isDefined) {
+      val child = context.child(uniqueActorName)
+      if (child.isDefined) {
         //do nothing
       } else {
         val child = context.actorOf(DrawingActor.props(uniqueActorName), uniqueActorName)
@@ -72,6 +77,17 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
           updateState(evt)
         }
         context.watch(child)
+      }
+    }
+    case RemoveSubscription(iPCheckRecord) => {
+      log.debug(s"Enter RemoveSubscription")
+      val uniqueActorName = "DrawingActor-" + iPCheckRecord.tennantID + "-" + iPCheckRecord.drawingEventID
+      val child = context.child(uniqueActorName)
+      if (child.isDefined) {
+        log.debug(s"Found child for name: $uniqueActorName pass on messsage")
+        child.get ! RemoveSubscription(iPCheckRecord)
+      } else {
+        log.warning(s"No child found for name: $uniqueActorName")
       }
     }
     case Subscribtions => {
