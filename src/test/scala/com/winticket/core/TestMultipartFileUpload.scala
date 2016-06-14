@@ -81,7 +81,10 @@ object TestMultipartFileUpload extends App {
         Source.single(
           Multipart.FormData.BodyPart(
             "test",
-            indef)))
+            indef
+          )
+        )
+      )
     Marshal(formData).to[RequestEntity]
   }
 
