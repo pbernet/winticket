@@ -11,7 +11,7 @@ trait Config {
   private val httpConfig = config.getConfig("http")
   private val appConfig = config.getConfig("app")
   private val smtpConfig = config.getConfig("smtp")
-  private val geoipConfig = config.getConfig("services")
+  private val servicesConfig = config.getConfig("services")
   private val securityConfig = config.getConfig("security")
   private val envConfig = config.getConfig("env")
   private val testConfig = config.getConfig("test")
@@ -32,10 +32,12 @@ trait Config {
   val user = smtpConfig.getString("user")
   val password = smtpConfig.getString("password")
 
-  val geoipHost = geoipConfig.getString("geoipHost")
-  val geoipPort = geoipConfig.getInt("geoipPort")
+  val isCheck4SwissIPEnabled = servicesConfig.getBoolean("isCheck4SwissIPEnabled")
+  val geoipHost = servicesConfig.getString("geoipHost")
+  val geoipPort = servicesConfig.getInt("geoipPort")
+  val initialDelayGeoIPCheck = FiniteDuration(servicesConfig.getDuration("initialDelayGeoIPCheck", TimeUnit.MINUTES), TimeUnit.MINUTES)
+  val intervalGeoIPCheck = FiniteDuration(servicesConfig.getDuration("intervalGeoIPCheck", TimeUnit.HOURS), TimeUnit.HOURS)
 
-  val isCheck4SwissIPEnabled = securityConfig.getBoolean("isCheck4SwissIPEnabled")
   val adminUsername = securityConfig.getString("adminUsername")
   val adminPassword = securityConfig.getString("adminPassword")
 
