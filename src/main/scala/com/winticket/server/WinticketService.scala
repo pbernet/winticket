@@ -3,20 +3,16 @@ package com.winticket.server
 import java.io._
 
 import akka.actor.{ActorSystem, Props}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
-import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK}
+import akka.http.scaladsl.model.StatusCodes.OK
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-cache`, `no-store`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.StandardRoute
 import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
-import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
-import akka.stream.scaladsl.{FileIO, Flow, Sink, Source}
+import akka.stream.scaladsl.FileIO
 import akka.util.Timeout
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.typesafe.config.ConfigFactory
@@ -49,30 +45,12 @@ trait WinticketService extends BaseService {
 
   val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
-  lazy val geoipConnectionFlow: Flow[HttpRequest, HttpResponse, Any] =
-    Http().outgoingConnection(geoipHost, geoipPort)
-
-  //TODO Try to change form Connection-Level Client-Side API to Host-Level Client-Side API to set max-retries
-  //http://doc.akka.io/docs/akka/2.4.4/scala/http/client-side/host-level.html
-
-  //Feature: prevent Resource Starvation
-  //http://kazuhiro.github.io/scala/akka/akka-http/akka-streams/2016/01/31/connection-pooling-with-akka-http-and-source-queue.html
+  val geoIPCheckerActor = system.actorOf(Props(new GeoIPCheckerActor(supervisor)), name = "GeoIPCheckerActor")
 
   val config = ConfigFactory.load()
-  val connectionPoolSettings = ConnectionPoolSettings(config)
-
-  val geoipFlowViaConnectionPool = Http().cachedHostConnectionPool(geoipHost, geoipPort)
-
-  val poolClientFlow = Http().cachedHostConnectionPool[Int]("akka.io")
-
-  def geoipRequest(request: HttpRequest): Future[HttpResponse] = Source.single(request).via(geoipConnectionFlow).runWith(Sink.head)
-
-  //TODO Does not compile anymore with newest version of akka-http
-  //def geoipRequestPool(request: HttpRequest) = Source.single(request).via(geoipFlowViaConnectionPool).runWith(Sink.head)
 
   def createDrawing(createDrawing: CreateDrawing): Unit = {
     supervisor ! CreateChild(createDrawing)
-
   }
 
   def getSubscriptions(): Elem = {
@@ -98,49 +76,6 @@ trait WinticketService extends BaseService {
     implicit val timeout = Timeout(10 seconds)
     val future: Future[List[DrawingReport]] = ask(supervisor, DrawingReports).mapTo[List[DrawingReport]]
     Await.result(future, timeout.duration)
-  }
-
-  def isIPValid(clientIP: String): Boolean = {
-
-    //A sync check does not make sense because the geoip service is unreliable (Timeouts, service not available)
-    //TODO Implement an async solution with a retry
-    if (isCheck4SwissIPEnabled) {
-      log.info("Client IP is: " + clientIP)
-      if (clientIP == "127.0.0.1" || clientIP == "localhost") {
-        true
-      } else {
-        val responseFuture: Future[Boolean] = geoipRequest(RequestBuilding.Get(s"/json/$clientIP")).flatMap { response =>
-          response.status match {
-            case OK => {
-              Unmarshal(response.entity).to[IpInfo].map {
-                ipinfo =>
-                  {
-                    val countryString = ipinfo.country_name.getOrElse("N/A country from geoip service")
-                    if (countryString == "Switzerland") {
-                      log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
-                      true
-                    } else {
-                      log.info("Request is not from Switzerland or N/A. Ignore. Country value: " + countryString)
-                      false
-                    }
-                  }
-              }
-            }
-            case BadRequest => Future.successful(false)
-            case _ => Unmarshal(response.entity).to[String].flatMap { entity =>
-              val error = s"The request to the geoip service failed with status code ${response.status} and entity $entity"
-              log.error(error)
-              Future.failed(new IOException(error))
-            }
-          }
-        }
-        implicit val timeout = Timeout(10 seconds)
-        log.info("Waiting for evaluation...")
-        Await.result(responseFuture, timeout.duration)
-      }
-    } else {
-      true
-    }
   }
 
   def isEMailValid(e: String): Boolean = e match {
@@ -170,12 +105,14 @@ trait WinticketService extends BaseService {
     //A Map is required for the route. Convert the Java based listOfTennants...
     val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
 
-    def handleEmail(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIPString: String): StandardRoute = {
+    def handleDirectSubscribeEmail(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIP: Option[String]): StandardRoute = {
       if (isEMailValid(commandORsubscriptionEMail)) {
 
         // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
         // Ask DrawingActor for State - or via isDrawingExecuted
-        supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIPString)
+        supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIP.getOrElse("N/A from request"))
+
+        geoIPCheckerActor ! GeoIPCheckerActor.AddIPCheckRecord(tennantID, tennantYear, drawingEventID, clientIP)
 
         val mediaTypeWithCharSet = MediaTypes.`text/html` withCharset HttpCharsets.`UTF-8`
         complete {
@@ -198,7 +135,7 @@ trait WinticketService extends BaseService {
       }
     }
 
-    def handleCommand(tennantID: String, tennantYear: Int, drawingEventID: Int): StandardRoute = {
+    def handleSubscribe(tennantID: String, tennantYear: Int, drawingEventID: Int): StandardRoute = {
       val drawingEventName = drawingReports.find(each => each.tennantID == tennantID && each.year == tennantYear && each.eventID == drawingEventID.toString()).getOrElse(DrawingReport()).drawingEventName
       val pathToConfirmationPage = s"/$tennantID/$tennantYear/$drawingEventID"
       val cacheHeaders = headers.`Cache-Control`(`no-cache`, `no-store`, `must-revalidate`)
@@ -219,21 +156,10 @@ trait WinticketService extends BaseService {
       (get & path(Segment)) { commandORsubscriptionEMail =>
 
         extractClientIP { clientIP =>
-          val clientIPString = clientIP.toOption.map(_.getHostAddress).getOrElse("N/A from request")
-          if (isIPValid(clientIPString)) {
-
-            commandORsubscriptionEMail match {
-              case "subscribe" => handleCommand(tennantID, tennantYear, drawingEventID)
-              case _           => handleEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPString)
-            }
-          } else {
-            complete {
-              <html>
-                <body>
-                  <status>IP Check failed - your subscription was not accepted</status>
-                </body>
-              </html>
-            }
+          val clientIPOption = clientIP.toOption.map(_.getHostAddress)
+          commandORsubscriptionEMail match {
+            case "subscribe" => handleSubscribe(tennantID, tennantYear, drawingEventID)
+            case _           => handleDirectSubscribeEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
           }
         }
       }
