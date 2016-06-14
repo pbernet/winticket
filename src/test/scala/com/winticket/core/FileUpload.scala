@@ -14,9 +14,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Test client for upload the test data file via Http
-  * Sideeffect: the uploaded file on the server contains Metainformation at the beginning of the file don't know why...
-  */
+ * Test client for upload the test data file via Http
+ * Side effect: the uploaded file on the server contains Metainformation at the beginning of the file. Don't know why...
+ */
 object FileUpload extends App {
 
   implicit val system = ActorSystem("ServerTest")
@@ -33,7 +33,10 @@ object FileUpload extends App {
         Source.single(
           Multipart.FormData.BodyPart(
             "uploadtest",
-            indef)))
+            indef
+          )
+        )
+      )
     Marshal(formData).to[RequestEntity]
   }
 
