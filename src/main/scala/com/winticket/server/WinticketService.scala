@@ -1,6 +1,6 @@
 package com.winticket.server
 
-import java.io._
+import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
@@ -198,8 +198,8 @@ trait WinticketService extends BaseService {
         request =>
           {
             val source = request.entity.dataBytes
-            val outFile = new File("/tmp/outfile.dat")
-            val sink = FileIO.toFile(outFile)
+            val outFile: Path = Paths.get("/tmp/outfile.dat")
+            val sink = FileIO.toPath(outFile)
             val replyFuture = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
 
             onSuccess(replyFuture) { replyMsg =>
@@ -207,7 +207,7 @@ trait WinticketService extends BaseService {
               //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
               implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
 
-              val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile), hasHeader = true)).toList
+              val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile.toFile), hasHeader = true)).toList
               aListOfDrawingEventsTry.foreach {
                 case Success(content) => createDrawing(content)
                 case Failure(f)       => log.error(f.getMessage)
