@@ -2,7 +2,7 @@
 set -x
 
 # set the version label
-VERSION_LABEL=v35
+VERSION_LABEL=v47
 
 PKG=winticket_pkg
 
@@ -36,4 +36,4 @@ aws elasticbeanstalk create-application-version --application-name winticket_app
 
 # Note: The environment winticketApp-env has bean created with the AWS GUI
 echo Deploy the image....
-aws elasticbeanstalk update-environment --environment-name winticket --version-label $VERSION_LABEL
+aws elasticbeanstalk update-environment --environment-name winticketApp-env --version-label $VERSION_LABEL
