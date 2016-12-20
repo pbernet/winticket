@@ -5,7 +5,7 @@ import io.gatling.http.Predef._
 import io.gatling.http.funspec.GatlingHttpFunSpec
 
 /**
- *  This class is a Gatling-Simulation and connects directly via HTTP to the REST Interface
+ * This class is a Gatling-Simulation and connects directly via HTTP to the REST Interface
  *
  * This test is started (via the sbt gatling plugin):
  * sbt -Dconfig.resource=/production.conf test
@@ -18,8 +18,7 @@ import io.gatling.http.funspec.GatlingHttpFunSpec
  */
 class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
 
-  //val baseURL = "http://localhost:9000"
-  val baseURL = "http://winticket.eu-west-1.elasticbeanstalk.com"
+  val baseURL = baseURLConfig
   override def httpConf = {
     super.httpConf.header("Custom-Header", "gatling.io")
     super.httpConf.userAgentHeader("gatling.io")
@@ -31,47 +30,41 @@ class WinticketServiceSystemSpec extends GatlingHttpFunSpec with Config {
 
   //simulate a redundant subscription -> only one per EMail is accepted for drawing
   spec {
-    http("gruenfels/2016/49")
-      .get("/gruenfels/2016/49/" + mailAccount1)
+    http("gruenfels/2017/49")
+      .get("/gruenfels/2017/49/" + mailAccount1)
       .check(status.is(200))
   }
 
   spec {
-    http("gruenfels/2016/49")
-      .get("/gruenfels/2016/49/" + mailAccount1)
+    http("gruenfels/2017/49")
+      .get("/gruenfels/2017/49/" + mailAccount1)
       .check(status.is(200))
   }
 
   //subscribe with different accounts for the same event -> That is possible
   spec {
-    http("gruenfels/2016/49")
-      .get("/gruenfels/2016/49/" + mailAccount2)
+    http("gruenfels/2017/49")
+      .get("/gruenfels/2017/49/" + mailAccount2)
       .check(status.is(200))
   }
 
   spec {
-    http("gruenfels/2016/49")
-      .get("/gruenfels/2016/49/" + mailAccount3)
+    http("gruenfels/2017/49")
+      .get("/gruenfels/2017/49/" + mailAccount3)
       .check(status.is(200))
   }
 
-  //subscribe with default account for other events -> To get more subscription data
+  //subscribe with default account not existing events -> The system currently accepts these requests
   spec {
-    http("gruenfels/2016/50")
-      .get("/gruenfels/2016/50/" + mailAccount1)
-      .check(status.is(200))
-  }
-
-  spec {
-    http("gruenfels/2016/51")
-      .get("/gruenfels/2016/51/" + mailAccount1)
+    http("gruenfels/2017/50")
+      .get("/gruenfels/2017/50/" + mailAccount1)
       .check(status.is(200))
   }
 
   //subscribe with default account for 2nd tennant -> To show the tennant functionality
   spec {
-    http("mandant2/2016/1")
-      .get("/mandant2/2016/1/" + mailAccount1)
+    http("mandant2/2017/49")
+      .get("/mandant2/2017/49/" + mailAccount1)
       .check(status.is(200))
   }
 

@@ -43,6 +43,7 @@ trait Config {
 
   val eventsFilePath = envConfig.getString("eventsFilePath")
 
+  val baseURLConfig = testConfig.getString("baseURLConfig")
   val mailAccount1 = testConfig.getString("mailAccount1")
   val mailAccount2 = testConfig.getString("mailAccount2")
   val mailAccount3 = testConfig.getString("mailAccount3")
