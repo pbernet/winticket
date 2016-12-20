@@ -2,20 +2,20 @@ package com.winticket.server
 
 import java.nio.file.{Path, Paths}
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
 import akka.http.scaladsl.model.StatusCodes.OK
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-cache`, `no-store`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
-import akka.http.scaladsl.server.StandardRoute
 import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
+import akka.http.scaladsl.server.{Route, StandardRoute}
 import akka.pattern.ask
 import akka.stream.scaladsl.FileIO
 import akka.util.Timeout
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingActorSupervisor.{CreateChild, DrawingReports, Subscribtions}
@@ -43,11 +43,11 @@ trait WinticketService extends BaseService {
 
   protected implicit val system = ActorSystem("winticket")
 
-  val supervisor = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
+  val supervisor: ActorRef = system.actorOf(Props[DrawingActorSupervisor], name = "DrawingActorSupervisor")
 
-  val geoIPCheckerActor = system.actorOf(Props(new GeoIPCheckerActor(supervisor)), name = "GeoIPCheckerActor")
+  val geoIPCheckerActor: ActorRef = system.actorOf(Props(new GeoIPCheckerActor(supervisor)), name = "GeoIPCheckerActor")
 
-  val config = ConfigFactory.load()
+  val config: Config = ConfigFactory.load()
 
   def createDrawing(createDrawing: CreateDrawing): Unit = {
     supervisor ! CreateChild(createDrawing)
@@ -79,10 +79,10 @@ trait WinticketService extends BaseService {
   }
 
   def isEMailValid(e: String): Boolean = e match {
-    case null                                          => false
-    case e if e.trim.isEmpty                           => false
-    case e if emailRegex.findFirstMatchIn(e).isDefined => true
-    case _                                             => false
+    case null                                            => false
+    case `e` if e.trim.isEmpty                           => false
+    case `e` if emailRegex.findFirstMatchIn(e).isDefined => true
+    case _                                               => false
   }
 
   def basicAuthenticator: Authenticator[UserPass] = {
@@ -100,18 +100,18 @@ trait WinticketService extends BaseService {
     }
   }
 
-  val routes = logRequestResult("winticket") {
+  val routes: Route = logRequestResult("winticket") {
 
-    //A Map is required for the route. Convert the Java based listOfTennants...
-    val tennantMap: Map[String, String] = tennantList.asScala.toList.map { case k => k -> k }.toMap
+    //A Map is required for the route, convert the Java based tennantList from the config
+    val tennantMap: Map[String, String] = tennantList.asScala.toList.map(k => k -> k).toMap
 
-    def handleDirectSubscribeEmail(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIP: Option[String]): StandardRoute = {
+    def processSubscription(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIP: Option[String]): StandardRoute = {
       if (isEMailValid(commandORsubscriptionEMail)) {
 
-        // TOOD If a user subscribes for an event which is in postDrawing state a different confirmation page could be shown to user
-        // Ask DrawingActor for State - or via isDrawingExecuted
+        // TOOD With this approach geoIP checks are made for these corner cases:
+        // - Subscription for an event which is already in postDrawing state. A different confirmation page (= sorry drawing done) could be shown to user
+        // - Subscription for an event, which does not exist
         supervisor ! Subscribe(tennantID, tennantYear.toString, drawingEventID.toString, commandORsubscriptionEMail, clientIP.getOrElse("N/A from request"))
-
         geoIPCheckerActor ! GeoIPCheckerActor.AddIPCheckRecord(tennantID, tennantYear, drawingEventID, clientIP)
 
         val mediaTypeWithCharSet = MediaTypes.`text/html` withCharset HttpCharsets.`UTF-8`
@@ -159,7 +159,7 @@ trait WinticketService extends BaseService {
           val clientIPOption = clientIP.toOption.map(_.getHostAddress)
           commandORsubscriptionEMail match {
             case "subscribe" => handleSubscribe(tennantID, tennantYear, drawingEventID)
-            case _           => handleDirectSubscribeEmail(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
+            case _           => processSubscription(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
           }
         }
       }
