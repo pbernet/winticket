@@ -17,8 +17,8 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Standalone example with client and server
-  */
+ * Standalone example with client and server
+ */
 object TestMultipartFileUpload extends App {
 
   implicit val system = ActorSystem("ServerTest")
