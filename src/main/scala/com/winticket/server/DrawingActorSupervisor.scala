@@ -36,8 +36,7 @@ object DrawingActorSupervisor {
 
 class DrawingActorSupervisor extends PersistentActor with ActorLogging {
 
-  //TODO Find a more suitable strategy for persistent Actors
-  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 2, withinTimeRange = 2.minutes) {
+  override val supervisorStrategy: OneForOneStrategy = OneForOneStrategy(maxNrOfRetries = 2, withinTimeRange = 2.minutes) {
     case _: RuntimeException => Restart
     case t                   => super.supervisorStrategy.decider.applyOrElse(t, (_: Any) => Escalate)
   }
@@ -63,6 +62,9 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
 
   val receiveCommand: Receive = {
     case CreateChild(createDrawing) => {
+      //TODO Extend uniqueActorName to include tennantYear so it is in the Form tennantID/tennantYear/drawingEventID
+      //Refactor tennantYear and drawingEventID to Int
+      //Extend case classes to do comparisons using uniqueActorName attributes
       val uniqueActorName = "DrawingActor-" + createDrawing.tennantID + "-" + createDrawing.drawingEventID
       val child = context.child(uniqueActorName)
       if (child.isDefined) {
@@ -80,15 +82,7 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       }
     }
     case RemoveSubscription(iPCheckRecord) => {
-      log.debug(s"Enter RemoveSubscription")
-      val uniqueActorName = "DrawingActor-" + iPCheckRecord.tennantID + "-" + iPCheckRecord.drawingEventID
-      val child = context.child(uniqueActorName)
-      if (child.isDefined) {
-        log.debug(s"Found child for name: $uniqueActorName pass on messsage")
-        child.get ! RemoveSubscription(iPCheckRecord)
-      } else {
-        log.warning(s"No child found for name: $uniqueActorName")
-      }
+      cmdToChild(iPCheckRecord.tennantID, iPCheckRecord.drawingEventID)(RemoveSubscription(iPCheckRecord))
     }
     case Subscribtions => {
       import context.dispatcher
@@ -126,7 +120,7 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       }
     }
     case subscribe @ Subscribe(tennantID, tennantYear, drawingEventID, subscriptionEMail, clientIPString) => {
-      context.children.foreach(drawingActor => drawingActor ! subscribe)
+      cmdToChild(tennantID, drawingEventID.toInt )(subscribe)
     }
     case DrawWinner => {
       context.children.foreach(drawingActor => drawingActor ! DrawWinner)
@@ -139,5 +133,17 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
   override def unhandled(message: Any): Unit = {
     log.warning(s"In state: ${state.size}  unhandled() called with msg $message")
     super.unhandled(message)
+  }
+
+  private def cmdToChild(tennantID: String, drawingEventID: Int) (cmd: Any) = {
+    log.debug(s"Enter cmdToChild")
+    val uniqueActorName = "DrawingActor-" + tennantID + "-" + drawingEventID
+    val child = context.child(uniqueActorName)
+    if (child.isDefined) {
+      log.debug(s"Found child for name: $uniqueActorName - Pass on command $cmd.")
+      child.get ! cmd
+    } else {
+      log.warning(s"No child found for name: $uniqueActorName - Do nothing.")
+    }
   }
 }
