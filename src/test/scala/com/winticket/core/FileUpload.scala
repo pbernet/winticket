@@ -14,15 +14,15 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Test client for upload a test data file via HTTP
-  * It requires:
-  * - WinticketMicroserviceMain to run on localhost
-  * - The file path as program argument, eg: "/myPath/data/events_production.csv"
-  *
-  * Side effect:
-  * - The uploaded file on the server contains Metainformation at the beginning of the file...
-  * - This does not happen when the upload is done from the admin app in the Browser
-  */
+ * Test client for upload a test data file via HTTP
+ * It requires:
+ * - WinticketMicroserviceMain to run on localhost
+ * - The file path as program argument, eg: "/myPath/data/events_production.csv"
+ *
+ * Side effect:
+ * - The uploaded file on the server contains Metainformation at the beginning of the file...
+ * - This does not happen when the upload is done from the admin app in the Browser
+ */
 object FileUpload extends App {
 
   implicit val system = ActorSystem("ServerTest")

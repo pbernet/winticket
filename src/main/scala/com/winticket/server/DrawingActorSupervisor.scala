@@ -120,7 +120,7 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       }
     }
     case subscribe @ Subscribe(tennantID, tennantYear, drawingEventID, subscriptionEMail, clientIPString) => {
-      cmdToChild(tennantID, drawingEventID.toInt )(subscribe)
+      cmdToChild(tennantID, drawingEventID.toInt)(subscribe)
     }
     case DrawWinner => {
       context.children.foreach(drawingActor => drawingActor ! DrawWinner)
@@ -135,7 +135,7 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
     super.unhandled(message)
   }
 
-  private def cmdToChild(tennantID: String, drawingEventID: Int) (cmd: Any) = {
+  private def cmdToChild(tennantID: String, drawingEventID: Int)(cmd: Any) = {
     log.debug(s"Enter cmdToChild")
     val uniqueActorName = "DrawingActor-" + tennantID + "-" + drawingEventID
     val child = context.child(uniqueActorName)
