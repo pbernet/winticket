@@ -1,11 +1,12 @@
 package com.winticket.server
 
-import akka.event.{Logging, LoggingAdapter}
+import akka.event.Logging
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /**
  * Start the http service and bootstrap the actor system (in WinticketService)
@@ -17,7 +18,7 @@ import scala.concurrent.{Await, ExecutionContext}
 object WinticketMicroserviceMain extends WinticketService {
 
   override protected implicit val executor: ExecutionContext = system.dispatcher
-  override protected val log: LoggingAdapter = Logging(system, getClass)
+  override protected val log =  Logging(system.eventStream, "winticket-main")
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   def main(args: Array[String]): Unit = {
@@ -26,8 +27,16 @@ object WinticketMicroserviceMain extends WinticketService {
       """-D(\S+)=(\S+)""".r
     for (jvmArg(name, value) <- args) System.setProperty(name, value)
 
-    log.info(s"Bind to: $httpInterface and: $httpPort")
-    Http().bindAndHandle(routes, httpInterface, httpPort)
+    log.info(s"About ot bind to: $httpInterface and: $httpPort")
+    val bindingFuture: Future[ServerBinding] = Http().bindAndHandle(routes, httpInterface, httpPort)
+
+    bindingFuture.map { serverBinding =>
+      log.info(s"Bound to ${serverBinding.localAddress} ")
+    }.onFailure {
+      case ex: Exception =>
+        log.error(ex, "Failed to bind to {}:{}!", host, port)
+        system.terminate()
+    }
 
     scala.sys.addShutdownHook {
       log.info("Terminating...")
