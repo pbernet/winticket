@@ -18,7 +18,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 object WinticketMicroserviceMain extends WinticketService {
 
   override protected implicit val executor: ExecutionContext = system.dispatcher
-  override protected val log =  Logging(system.eventStream, "winticket-main")
+  override protected val log = Logging(system.eventStream, "winticket-main")
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   def main(args: Array[String]): Unit = {
@@ -35,11 +35,13 @@ object WinticketMicroserviceMain extends WinticketService {
     }.onFailure {
       case ex: Exception =>
         log.error(ex, "Failed to bind to {}:{}!", host, port)
+        Http().shutdownAllConnectionPools()
         system.terminate()
     }
 
     scala.sys.addShutdownHook {
       log.info("Terminating...")
+      Http().shutdownAllConnectionPools()
       system.terminate()
       Await.result(system.whenTerminated, 30.seconds)
       log.info("Terminated... Bye")
