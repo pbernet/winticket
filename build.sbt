@@ -4,7 +4,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.4"
+version       := "0.0.5"
 scalaVersion  := "2.11.8"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -13,7 +13,8 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
-  val akkaV            = "2.4.7"
+  val akkaV            = "2.4.14"
+  val akkaHttpV        = "10.0.0"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.2"
   val scalaTestV       = "3.0.0-M1"
@@ -21,9 +22,10 @@ libraryDependencies ++= {
   val scalazScalaTestV = "0.2.3"
   Seq(
     "org.scalaz"        %% "scalaz-core"                          % scalazV,
-    "com.typesafe.akka" %% "akka-http-experimental"               % akkaV,
+    "com.typesafe.akka" %% "akka-http-core"                       % akkaHttpV,
+    "com.typesafe.akka" %% "akka-http"                            % akkaHttpV,
     "com.typesafe.akka" %% "akka-stream"                          % akkaV            % "it,test",
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental"    % akkaV,
+    "com.typesafe.akka" %% "akka-http-spray-json"                 % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j"                           % akkaV,
     "ch.qos.logback"     % "logback-classic"                      % "1.1.7",
 
@@ -32,7 +34,7 @@ libraryDependencies ++= {
     "org.fusesource.leveldbjni"   % "leveldbjni-all"              % "1.8",
 
     //needed for XHTML in HTTP Response
-    "com.typesafe.akka" %% "akka-http-xml-experimental"           % akkaV,
+    "com.typesafe.akka" %% "akka-http-xml"                        % akkaHttpV,
 
     "org.apache.commons" % "commons-email"                        % apacheMailV,
     "com.github.marklister" %% "product-collections"              % productCollV,
@@ -42,7 +44,7 @@ libraryDependencies ++= {
     "org.scalamock"     %% "scalamock-scalatest-support"          % scalaMockV       % "it,test",
     "org.scalaz"        %% "scalaz-scalacheck-binding"            % scalazV          % "it,test",
     "org.typelevel"     %% "scalaz-scalatest"                     % scalazScalaTestV % "it,test",
-    "com.typesafe.akka" %% "akka-http-testkit-experimental"       % "2.0.4"          % "it,test",
+    "com.typesafe.akka" %% "akka-http-testkit"                    % akkaHttpV        % "it,test",
     //needed for experimental ScalaTest/Gatling integration for REST API Testing
     "io.gatling" % "gatling-test-framework" % "2.2.0" % "it, test"
 
