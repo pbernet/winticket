@@ -17,7 +17,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object WinticketMicroserviceMain extends WinticketService {
 
-  override protected implicit val executor: ExecutionContext = system.dispatcher
+  override implicit def executor: ExecutionContext = system.dispatcher
   override protected val log = Logging(system.eventStream, "winticket-main")
   override protected implicit val materializer: ActorMaterializer = ActorMaterializer()
 
