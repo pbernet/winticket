@@ -2,23 +2,22 @@ package com.winticket.server
 
 import akka.actor.Status.Failure
 import akka.actor.{ActorLogging, ActorRef}
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.settings.ConnectionPoolSettings
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.persistence.{PersistentActor, RecoveryCompleted}
-import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings}
+import com.typesafe.config.ConfigFactory
 import com.winticket.core.{Config, Protocol}
 import com.winticket.server.DrawingActorSupervisor.RemoveSubscription
 import com.winticket.server.DrawingProtocol._
-import com.winticket.server.GeoIPCheckerActor.{ExecuteRequest, GeoIPCheckerState, RemoveIPCheckRecord}
+import com.winticket.server.GeoIPCheckerActor.{GeoIPCheckerState, IPCheckRecord, RemoveIPCheckRecord}
 
 object GeoIPCheckerActor {
   sealed trait Command
   case object Check extends Command
-  case class ExecuteRequest(httpRequest: HttpRequest) extends Command
   case class AddIPCheckRecord(tennantID: String, tennantYear: Int, drawingEventID: Int, clientIP: Option[String]) extends Command
   case class RemoveIPCheckRecord(clientIP: Option[String]) extends Command
 
@@ -32,8 +31,8 @@ object GeoIPCheckerActor {
     def itemFor(ipOption: Option[String]) = todoList.find(_.clientIP == ipOption)
   }
 
-  case class IPCheckRecord(tennantID: String, tennantYear: Int, drawingEventID: Int, clientIP: Option[String]) {
-    override def toString() = s"$tennantID;$tennantYear;$drawingEventID;${clientIP.getOrElse("N/A")}"
+  case class IPCheckRecord(tennantID: String = "", tennantYear: Int = 0, drawingEventID: Int = 0, clientIP: Option[String]) {
+    override def toString() = s"$tennantID-$tennantYear-$drawingEventID ${clientIP.getOrElse("N/A")}"
   }
 }
 
@@ -63,8 +62,8 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
 
   final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
 
-  val http = Http(context.system)
-  val connection2geoip = http.outgoingConnection(geoipHost, geoipPort)
+  val config = ConfigFactory.load()
+  val restClient = RestClient(geoipHost, geoipPort, ConnectionPoolSettings(config))(context.system, materializer)
 
   val receiveRecover: Receive = {
     case evt: IPCheckRecordAdded =>
@@ -99,15 +98,12 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
             self ! RemoveIPCheckRecord(clientIP = Some(clientIP))
           } else {
             val httpRequest = RequestBuilding.Get(s"/json/$clientIP")
-            self ! GeoIPCheckerActor.ExecuteRequest(httpRequest)
+            restClient.exec(httpRequest).pipeTo(self)
           }
         }
       }
     }
-    case ExecuteRequest(httpRequest) => {
-      log.info("Execute HttpRequest via geoip service")
-      Source.single(httpRequest).via(connection2geoip).runWith(Sink.head).pipeTo(self)
-    }
+
     case HttpResponse(StatusCodes.OK, headers, entity, _) =>
       log.info(s"Got HttpResponse with code: ${StatusCodes.OK}")
       Unmarshal(entity).to[IpInfo].map {
@@ -117,15 +113,15 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
             if (countryName == "Switzerland") {
               log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
             } else {
-              log.info(s"Request with IP: ${ipinfo.ip} is not from Switzerland (countryName value: $countryName). Try to remove subscription...")
-              val checkRecord = state.get.itemFor(Some(ipinfo.ip))
-              if (checkRecord.isDefined) drawingActorSupervisor ! RemoveSubscription(checkRecord.get)
+              //Since we do not have the context of the tennant/year/drawing when called from the geoIP service, try this approach
+              log.info(s"Request with IP: ${ipinfo.ip} is not from Switzerland (countryName value: $countryName). Try to remove ALL subscriptions with this IP from all tennants...")
+              drawingActorSupervisor ! RemoveSubscription(IPCheckRecord(clientIP = Some(ipinfo.ip)))
             }
           }
           self ! RemoveIPCheckRecord(clientIP = Some(ipinfo.ip))
       }
     case HttpResponse(code, _, _, _) => log.error(s"The request to the geoip service failed with HttpResponse code: ${code}. Retry on next run.")
-    case Failure(cause)              => log.error(s"The geoip service could not be reached. Retry on next run. Possibly a network problem. Details: $cause")
+    case Failure(cause)              => log.error(s"The geoip service could not be reached. Retry on next run. Possibly a network or configuration problem. Details: $cause")
     case msg                         => log.warning(s"Received unknown message - do nothing. Message is: $msg")
   }
 }
