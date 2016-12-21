@@ -30,10 +30,10 @@ object DrawingActor {
 
   case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, drawingLinkToTicket: String, drawinSsecurityCodeForTicket: String, subscriptions: Seq[SubscriptionRecord] = Nil) {
     def updated(evt: DrawingEvent): DrawingState = evt match {
-      case Subscribed(tID, year, eventID, email, ip, date) => copy(subscriptions = SubscriptionRecord(tID, year, eventID, email, ip, date) +: subscriptions)
-      case SubscriptionRemoved(_, _, _, clientIP)          => copy(subscriptions = subscriptions.filterNot(_.ip == clientIP.get))
-      case DrawWinnerExecuted(winnerEMail)                 => copy(drawingWinnerEMail = Some(winnerEMail))
-      case _                                               => this
+      case Subscribed(tID, year, eventID, email, ip, date)   => copy(subscriptions = SubscriptionRecord(tID, year, eventID, email, ip, date) +: subscriptions)
+      case SubscriptionRemoved(tID, year, eventID, clientIP) => copy(subscriptions = subscriptions.filter(each => each.tennantID == tID && each.year == year.toString && each.eventID == eventID.toString).filterNot(_.ip == clientIP.get))
+      case DrawWinnerExecuted(winnerEMail)                   => copy(drawingWinnerEMail = Some(winnerEMail))
+      case _                                                 => this
     }
 
     def totalSubscriptions = subscriptions.length
@@ -151,8 +151,8 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
       }
     }
     case RemoveSubscription(iPCheckRecord) => {
-      persist(SubscriptionRemoved(clientIP = iPCheckRecord.clientIP))(evt => {
-        log.info(s"All Subscriptions removed for IP: ${iPCheckRecord.clientIP} for Drawing: ${uniqueActorName}")
+      persist(SubscriptionRemoved(tennantID = iPCheckRecord.tennantID, tennantYear = iPCheckRecord.tennantYear, drawingEventID = iPCheckRecord.drawingEventID, clientIP = iPCheckRecord.clientIP))(evt => {
+        log.info(s"All Subscriptions from IP: ${iPCheckRecord.clientIP.get} removed for drawing event: ${uniqueActorName}")
         updateState(evt)
       })
     }

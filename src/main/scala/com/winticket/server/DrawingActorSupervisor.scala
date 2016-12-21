@@ -80,8 +80,9 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
         context.watch(child)
       }
     }
-    case RemoveSubscription(iPCheckRecord) => {
-      context.children.foreach(drawingActor => drawingActor ! RemoveSubscription(iPCheckRecord))
+    case removeSubscription @ RemoveSubscription(iPCheckRecord) => {
+      val uniqueActorName = DrawingActorSupervisor.uniqueActorName(iPCheckRecord.tennantID, iPCheckRecord.tennantYear.toString, iPCheckRecord.drawingEventID.toString)
+      cmdToChild(uniqueActorName)(removeSubscription)
     }
     case Subscribtions => {
       import context.dispatcher
