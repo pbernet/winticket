@@ -30,24 +30,24 @@ object DrawingActor {
 
   case class DrawingState(tennantID: String, tennantYear: Int, tennantEMail: String, drawingEventID: String, drawingEventName: String, drawingEventDate: DateTime, drawingWinnerEMail: Option[String] = None, drawingLinkToTicket: String, drawinSsecurityCodeForTicket: String, subscriptions: Seq[SubscriptionRecord] = Nil) {
     def updated(evt: DrawingEvent): DrawingState = evt match {
-      case Subscribed(year, eventID, email, ip, date) => copy(subscriptions = SubscriptionRecord(year, eventID, email, ip, date) +: subscriptions)
-      case SubscriptionRemoved(_, _, _, clientIP)     => copy(subscriptions = subscriptions.filterNot(_.ip == clientIP.get))
-      case DrawWinnerExecuted(winnerEMail)            => copy(drawingWinnerEMail = Some(winnerEMail))
-      case _                                          => this
+      case Subscribed(tID, year, eventID, email, ip, date) => copy(subscriptions = SubscriptionRecord(tID, year, eventID, email, ip, date) +: subscriptions)
+      case SubscriptionRemoved(_, _, _, clientIP)          => copy(subscriptions = subscriptions.filterNot(_.ip == clientIP.get))
+      case DrawWinnerExecuted(winnerEMail)                 => copy(drawingWinnerEMail = Some(winnerEMail))
+      case _                                               => this
     }
 
     def totalSubscriptions = subscriptions.length
   }
 
-  case class SubscriptionRecord(year: String, eventID: String, email: String, ip: String, date: DateTime) {
-    override def toString() = { s"$year,$eventID, $email,$ip,${date.toIsoDateTimeString()}" }
+  case class SubscriptionRecord(tennantID: String, year: String, eventID: String, email: String, ip: String, date: DateTime) {
+    override def toString() = { s"$tennantID-$year-$eventID, $email,$ip,${date.toIsoDateTimeString()}" }
   }
 
   case class DrawingReport(tennantID: String = "N/A", year: Int = 1970, eventID: String = "N/A", drawingEventDate: DateTime = DateTime.now, drawingEventName: String = "N/A", winnerEMail: String = "N/A", uniqueSubscriptions: Int = 0, totalSubscriptions: Int = 0) {
-    override def toString() = { s"Event: $tennantID/$year/$eventID Date/Name: $drawingEventDate/$drawingEventName Winner: $winnerEMail Subscriptions: ($uniqueSubscriptions/$totalSubscriptions) " }
+    override def toString() = { s"Event: $tennantID-$year-$eventID Date/Name: $drawingEventDate/$drawingEventName Winner: $winnerEMail Subscriptions: ($uniqueSubscriptions/$totalSubscriptions) " }
   }
 
-  def props(tennantID: String) = Props(new DrawingActor(tennantID))
+  def props(uniqueActorName: String) = Props(new DrawingActor(uniqueActorName))
 
 }
 
@@ -62,14 +62,14 @@ object DrawingActor {
  *  - receiveCommands (aka whileDrawing)
  *  - postDrawing (This is the final state, the drawing is in the past. Only queries are accepted)
  */
-class DrawingActor(actorID: String) extends PersistentActor with ActorLogging with Config {
+class DrawingActor(actorName: String) extends PersistentActor with ActorLogging with Config {
 
   import context.dispatcher
   val draw = context.system.scheduler.schedule(initialDelayDrawWinner, intervalDrawWinner, self, DrawWinner)
 
   override def postStop() = draw.cancel()
 
-  def persistenceId = actorID
+  def persistenceId = actorName
 
   var state: Option[DrawingState] = None
 
@@ -94,8 +94,8 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     state.get.subscriptions.groupBy(_.email)
   }
 
-  def idString = {
-    s"${state.get.tennantID}/${state.get.tennantYear}/${state.get.drawingEventID}"
+  def uniqueActorName = {
+    s"${state.get.tennantID}-${state.get.tennantYear}-${state.get.drawingEventID}"
   }
 
   //on startup of the actor these events are recovered
@@ -141,8 +141,8 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       }
 
       if (isMatchingEvent) {
-        persist(Subscribed(year, eventID, email, ip, DateTime.now))(evt => {
-          log.info(s"Subscribed $email for Drawing: ${idString}")
+        persist(Subscribed(tennantID, year, eventID, email, ip, DateTime.now))(evt => {
+          log.info(s"Subscribed $email for Drawing: ${uniqueActorName}")
           updateState(evt)
         })
         sendConfirmationMail()
@@ -151,8 +151,8 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
       }
     }
     case RemoveSubscription(iPCheckRecord) => {
-      persist(SubscriptionRemoved(tennantID = iPCheckRecord.tennantID, tennantYear = iPCheckRecord.tennantYear, drawingEventID = iPCheckRecord.drawingEventID, clientIP = iPCheckRecord.clientIP))(evt => {
-        log.info(s"All SubscriptionRemoved for IP: ${iPCheckRecord.clientIP} for Drawing: ${idString}")
+      persist(SubscriptionRemoved(clientIP = iPCheckRecord.clientIP))(evt => {
+        log.info(s"All Subscriptions removed for IP: ${iPCheckRecord.clientIP} for Drawing: ${uniqueActorName}")
         updateState(evt)
       })
     }
@@ -165,10 +165,10 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
 
       //This test is not necessary anymore with the new state "postDrawing", but remains here for safety
       if (isDrawingExecuted) {
-        log.info(s"Drawing for ${idString} and eventDate: $eventDate is already executed")
+        log.info(s"Drawing for ${uniqueActorName} and eventDate: $eventDate is already executed")
       } else {
         if (drawingDate <= DateTime.now) {
-          log.info(s"Starting drawing for: ${idString} and eventDate: $eventDate")
+          log.info(s"Starting drawing for: ${uniqueActorName} and eventDate: $eventDate")
 
           val numberOfUniqueSubscriptions = uniqueSubscribtions.size
           if (uniqueSubscribtions.nonEmpty) {
@@ -202,12 +202,12 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
             }
 
           } else {
-            log.info(s"Drawing: ${idString} and eventDate: $eventDate has NO subscriptions, that means no winner can be drawn...")
+            log.info(s"Drawing: ${uniqueActorName} and eventDate: $eventDate has NO subscriptions, that means no winner can be drawn...")
             updateState(DrawWinnerExecuted("N/A"))
             context.become(postDrawing)
           }
         } else {
-          log.info(s"Drawing: ${idString} and eventDate: $eventDate is not yet due")
+          log.info(s"Drawing: ${uniqueActorName} and eventDate: $eventDate is not yet due")
         }
       }
     }
@@ -229,7 +229,7 @@ class DrawingActor(actorID: String) extends PersistentActor with ActorLogging wi
     case GetDrawingReport => {
       sender() ! DrawingReport(state.get.tennantID, state.get.tennantYear, state.get.drawingEventID, state.get.drawingEventDate, state.get.drawingEventName, state.get.drawingWinnerEMail.getOrElse("N/A"), uniqueSubscribtions.size, state.get.totalSubscriptions)
     }
-    case msg => log.info(s"${idString} - Received unknown message for state postDrawing - do nothing. Message is: $msg")
+    case msg => log.info(s"${uniqueActorName} - Received unknown message for state postDrawing - do nothing. Message is: $msg")
   }
 
   // Initially we expect a CreateDrawing command
