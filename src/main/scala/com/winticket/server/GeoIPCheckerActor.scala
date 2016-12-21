@@ -98,14 +98,14 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
             self ! RemoveIPCheckRecord(clientIP = Some(clientIP))
           } else {
             val httpRequest = RequestBuilding.Get(s"/json/$clientIP")
-            restClient.exec(httpRequest).pipeTo(self)
+            restClient.execTyped[IPCheckRecord](httpRequest, each).pipeTo(self)
           }
         }
       }
     }
 
-    case HttpResponse(StatusCodes.OK, headers, entity, _) =>
-      log.info(s"Got HttpResponse with code: ${StatusCodes.OK}")
+    case ResultWrapper(HttpResponse(StatusCodes.OK, _, entity, _), context: IPCheckRecord) =>
+      log.info(s"Got ResultWrapper with HttpResponse with code: ${StatusCodes.OK} and event context: ${context.toString()}")
       Unmarshal(entity).to[IpInfo].map {
         ipinfo =>
           {
@@ -113,15 +113,15 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
             if (countryName == "Switzerland") {
               log.info(s"Request with IP: ${ipinfo.ip} is from Switzerland. Proceed")
             } else {
-              //Since we do not have the context of the tennant/year/drawing when called from the geoIP service, try this approach
-              log.info(s"Request with IP: ${ipinfo.ip} is not from Switzerland (countryName value: $countryName). Try to remove ALL subscriptions with this IP from all tennants...")
-              drawingActorSupervisor ! RemoveSubscription(IPCheckRecord(clientIP = Some(ipinfo.ip)))
+              log.info(s"Request with IP: ${ipinfo.ip} is not from Switzerland (countryName value: $countryName). Try to remove ALL subscriptions with this IP for drawing event/IP: ${context.toString()}")
+              drawingActorSupervisor ! RemoveSubscription(context.copy(clientIP = Some(ipinfo.ip)))
             }
           }
           self ! RemoveIPCheckRecord(clientIP = Some(ipinfo.ip))
       }
-    case HttpResponse(code, _, _, _) => log.error(s"The request to the geoip service failed with HttpResponse code: ${code}. Retry on next run.")
-    case Failure(cause)              => log.error(s"The geoip service could not be reached. Retry on next run. Possibly a network or configuration problem. Details: $cause")
-    case msg                         => log.warning(s"Received unknown message - do nothing. Message is: $msg")
+
+    case ResultWrapper(HttpResponse(code, _, _, _), _) => log.error(s"The request to the geoip service failed with HTTP status code: ${code}. Retry on next run.")
+    case Failure(cause)                                => log.error(s"The geoip service could not be reached. Retry on next run. Possibly a network or configuration problem. Details: $cause")
+    case msg                                           => log.warning(s"Received unknown message - do nothing. Message is: $msg")
   }
 }

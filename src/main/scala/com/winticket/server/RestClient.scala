@@ -13,6 +13,8 @@ import scala.collection.immutable.SortedMap
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+case class ResultWrapper(req: HttpResponse, ctx: Any)
+
 /**
  * Rest client dispatcher using an Akka http "host level" pooled connection to make the requests
  * Doc http://doc.akka.io/docs/akka-http/current/scala/http/client-side/host-level.html
@@ -28,6 +30,7 @@ case class RestClient(address: String, port: Int, poolSettings: ConnectionPoolSe
 
   import system.dispatcher
   private val pool = Http().cachedHostConnectionPool[Int](address, port, poolSettings)
+  private val poolAny = Http().cachedHostConnectionPool[Any](address, port, poolSettings)
 
   logger.info("Loaded from config akka.http.client.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.client.host-connection-pool.max-connections"))
   logger.info("Loaded from config akka.http.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.host-connection-pool.max-connections"))
@@ -43,6 +46,21 @@ case class RestClient(address: String, port: Int, poolSettings: ConnectionPoolSe
       .runWith(Sink.head).flatMap {
         case (Success(r: HttpResponse), _) => Future.successful(r)
         case (Failure(f), _)               => Future.failed(f)
+      }
+  }
+
+  /**
+   * Execute a single request using the connection pool.
+   * @param req An HttpRequest
+   * @param context A object of type Any, which is recieved when the answer returns
+   * @return A ResultWrapper which can be matched in the actor
+   */
+  def execTyped[F <: Any](req: HttpRequest, context: F): Future[ResultWrapper] = {
+    Source.single(req -> context)
+      .via(poolAny)
+      .runWith(Sink.head).flatMap {
+        case (Success(r: HttpResponse), ctx: Any) => Future.successful(ResultWrapper(r, ctx))
+        case (Failure(f), _)                      => Future.failed(f)
       }
   }
 
