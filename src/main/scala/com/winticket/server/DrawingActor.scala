@@ -139,8 +139,8 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
       def sendConfirmationMail() = {
         val smtpConfig = SmtpConfig(tls, ssl, port, host, user, password)
         val drawingDate = state.get.drawingEventDate - drawingDateDelta
-        val drawinDateNice = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
-        val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/confirm.txt", Map("drawinDateNice" -> drawinDateNice)))
+        val drawingDatePretty = drawingDate.day + "." + drawingDate.month + "." + drawingDate.year
+        val bodyText = Some(RenderHelper.getFromResourceRenderedWith("/mail/confirm.txt", Map("drawingDatePretty" -> drawingDatePretty)))
         val confirmationMessage = EMailMessage("Teilnahme an Verlosung: " + state.get.drawingEventName, email, state.get.tennantEMail, None, bodyText, smtpConfig, 1 minute, 3)
         EMailService.send(confirmationMessage)
       }
