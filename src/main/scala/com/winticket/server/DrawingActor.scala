@@ -234,7 +234,8 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
     case GetDrawingReport => {
       sender() ! DrawingReport(state.get.tennantID, state.get.tennantYear, state.get.drawingEventID, state.get.drawingEventDate, state.get.drawingEventName, state.get.drawingWinnerEMail.getOrElse("N/A"), uniqueSubscribtions.size, state.get.totalSubscriptions)
     }
-    case msg => log.info(s"$uniqueActorName - Received unknown message for state postDrawing - do nothing. Message is: $msg")
+    //TODO For unknown reasons Subscribe events are recieved for events in postDrawing state - set to debug to minimize the noise in the log
+    case msg => log.debug(s"$uniqueActorName - Received unknown message for state postDrawing - do nothing. Message is: $msg")
   }
 }
 
