@@ -186,7 +186,7 @@ trait WinticketService extends BaseService with DrawingAPI {
   }
 
   /**
-    * Upload the content to a tmp file and then parse the CSV via the "product-collections" lib
+    * Upload the content to a file and then parse the CSV via the "product-collections" lib
     * This approach allows for easier conversion CSV -> CreateDrawing at the cost of having the data in memory
     */
   private def uploadRoute = path("uploaddata") {

@@ -32,7 +32,7 @@ object GeoIPCheckerActor {
   }
 
   case class IPCheckRecord(tennantID: String = "", tennantYear: Int = 0, drawingEventID: Int = 0, clientIP: Option[String]) {
-    override def toString() = s"$tennantID-$tennantYear-$drawingEventID ${clientIP.getOrElse("N/A")}"
+    override def toString = s"$tennantID-$tennantYear-$drawingEventID ${clientIP.getOrElse("N/A")}"
   }
 }
 
@@ -42,7 +42,7 @@ object GeoIPCheckerActor {
  * - notifies the DrawingActor (via the supervisor) to remove subscriptions
  *
  * Note that this implementation has no real business value nor does it provide better security
- * It just shows akka in combination with akka-http to access an external service
+ * It just how to use a akka-http client to access an external service
  * Activate it in application.conf with: isCheck4SwissIPEnabled = true
  */
 class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActor with Protocol with SprayJsonSupport with ActorLogging with Config {
@@ -62,8 +62,8 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
 
   final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
 
-  val config = ConfigFactory.load()
-  val restClient = RestClient(geoipHost, geoipPort, ConnectionPoolSettings(config))(context.system, materializer)
+  private val config = ConfigFactory.load()
+  private val restClient = RestClient(geoipHost, geoipPort, ConnectionPoolSettings(config))(context.system, materializer)
 
   val receiveRecover: Receive = {
     case evt: IPCheckRecordAdded =>
@@ -120,7 +120,7 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
           self ! RemoveIPCheckRecord(clientIP = Some(ipinfo.ip))
       }
 
-    case ResultWrapper(HttpResponse(code, _, _, _), _) => log.error(s"The request to the geoip service failed with HTTP status code: ${code}. Retry on next run.")
+    case ResultWrapper(HttpResponse(code, _, _, _), _) => log.error(s"The request to the geoip service failed with HTTP status code: $code. Retry on next run.")
     case Failure(cause)                                => log.error(s"The geoip service could not be reached. Retry on next run. Possibly a network or configuration problem. Details: $cause")
     case msg                                           => log.warning(s"Received unknown message - do nothing. Message is: $msg")
   }
