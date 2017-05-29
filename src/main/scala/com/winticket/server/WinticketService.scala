@@ -185,6 +185,10 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
   }
 
+  /**
+    * Upload the content to a tmp file and then parse the CSV via the "product-collections" lib
+    * This approach allows for easier conversion CSV -> CreateDrawing at the cost of having the data in memory
+    */
   private def uploadRoute = path("uploaddata") {
     (post & extractRequest) {
       request =>
@@ -192,7 +196,7 @@ trait WinticketService extends BaseService with DrawingAPI {
           val source = request.entity.dataBytes
           val outFile: Path = Paths.get("/tmp/outfile.dat")
           val sink = FileIO.toPath(outFile)
-          val replyFuture = source.runWith(sink).map(x => s"Finished uploading ${x} bytes!")
+          val replyFuture = source.runWith(sink).map(x => s"Finished uploading $x bytes!")
 
           onSuccess(replyFuture) { replyMsg =>
 
@@ -200,11 +204,11 @@ trait WinticketService extends BaseService with DrawingAPI {
             implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
 
             val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile.toFile), hasHeader = true)).toList
-            aListOfDrawingEventsTry.foreach {
-              case Success(content) => createDrawing(content)
-              case Failure(f)       => log.error(f.getMessage)
+            val convertStatus = aListOfDrawingEventsTry.map {
+              case Success(content) => createDrawing(content); s"\nOK ${content.drawingEventID} - ${content.drawingEventName}"
+              case Failure(f)       => log.error(f.getMessage); s"\nERROR while converting: ${f.getMessage}"
             }
-            complete(HttpResponse(status = StatusCodes.OK, entity = replyMsg))
+            complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
           }
         }
     }
