@@ -4,8 +4,8 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.5"
-scalaVersion  := "2.11.8"
+version       := "0.0.6"
+scalaVersion  := "2.11.11"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
   "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
@@ -13,24 +13,26 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
-  val akkaV            = "2.4.14"
-  val akkaHttpV        = "10.0.0"
+  val akkaV            = "2.5.2"
+  val akkaHttpV        = "10.0.6"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.2"
-  val scalaTestV       = "3.0.0-M1"
-  val scalaMockV       = "3.2.2"
+  val scalaTestV       = "3.0.1"
+  val scalaMockV       = "3.6.0"
   val scalazScalaTestV = "0.2.3"
   Seq(
     "org.scalaz"        %% "scalaz-core"                          % scalazV,
     "com.typesafe.akka" %% "akka-http-core"                       % akkaHttpV,
     "com.typesafe.akka" %% "akka-http"                            % akkaHttpV,
-    "com.typesafe.akka" %% "akka-stream"                          % akkaV            % "it,test",
+    "com.typesafe.akka" %% "akka-stream"                          % akkaV,
     "com.typesafe.akka" %% "akka-http-spray-json"                 % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j"                           % akkaV,
     "ch.qos.logback"     % "logback-classic"                      % "1.1.7",
 
     "com.typesafe.akka" %% "akka-persistence"                     % akkaV,
-    "org.iq80.leveldb"            % "leveldb"                     % "0.7",
+    //TODO Only one of those two needs to be used
+    //see https://github.com/akka/akka/issues/22816
+    "org.iq80.leveldb"            % "leveldb"                     % "0.9",
     "org.fusesource.leveldbjni"   % "leveldbjni-all"              % "1.8",
 
     //needed for XHTML in HTTP Response
