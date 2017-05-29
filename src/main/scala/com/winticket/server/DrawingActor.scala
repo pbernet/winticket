@@ -67,6 +67,8 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
   import context.dispatcher
   private val draw = context.system.scheduler.schedule(initialDelayDrawWinner, intervalDrawWinner, self, DrawWinner)
 
+  private val drawingDateDelta: Long = 1000L * 3600L * 24L * drawingDateDeltaDaysBackwards
+
   override def postStop() = draw.cancel()
 
   def persistenceId: String = actorName
@@ -123,6 +125,9 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
     }
     case msg => log.warning(s"Received unknown message for state receiveCreate - do nothing. Message is: $msg")
   }
+
+  // Initially we expect a CreateDrawing command
+  val receiveCommand: Receive = receiveCreate
 
   val receiveCommands: Receive = {
     case Subscribe(tennantID, year, eventID, email, ip) => {
@@ -231,10 +236,5 @@ class DrawingActor(actorName: String) extends PersistentActor with ActorLogging 
     }
     case msg => log.info(s"$uniqueActorName - Received unknown message for state postDrawing - do nothing. Message is: $msg")
   }
-
-  // Initially we expect a CreateDrawing command
-  val receiveCommand: Receive = receiveCreate
-
-  val drawingDateDelta: Long = 1000L * 3600L * 24L * drawingDateDeltaDaysBackwards
 }
 
