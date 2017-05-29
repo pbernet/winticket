@@ -14,7 +14,7 @@ object EMailService {
    * Uses the smallest inbox strategy to keep 20 instances alive ready to send out email
    * @see SmallestMailboxRouter
    */
-  val emailServiceActor = akka.actor.ActorSystem("system").actorOf(
+  private val emailServiceActor = akka.actor.ActorSystem("winticket-email-service").actorOf(
     Props[EmailServiceActor].withRouter(
       SmallestMailboxPool(nrOfInstances = 20)
     ), name = "EMailService"
@@ -29,12 +29,11 @@ object EMailService {
   }
 
   /**
-   * Private helper invoked by the actors that sends the email
+   * Used by the actors that sends the email
    * @param emailMessage the email message
    */
   private def sendEmailSync(emailMessage: EMailMessage) {
 
-    // Create the email message
     val email = new HtmlEmail()
     email.setTLS(emailMessage.smtpConfig.tls)
     email.setSSL(emailMessage.smtpConfig.ssl)
@@ -114,9 +113,9 @@ object EMailService {
       case email: EMailMessage => {
         emailMessage = Option(email)
         email.deliveryAttempts = email.deliveryAttempts + 1
-        log.debug("Atempting to deliver message")
+        log.debug("About to send email")
         sendEmailSync(email)
-        log.debug("Message delivered")
+        log.debug("EMail delivered")
       }
       case unexpectedMessage: Any => {
         log.debug("Received unexepected message : {}", unexpectedMessage)
@@ -131,9 +130,8 @@ object EMailService {
     override def preRestart(reason: Throwable, message: Option[Any]) {
       if (emailMessage.isDefined) {
         log.debug("Scheduling email message to be sent after attempts: {}", emailMessage.get)
-        import context.dispatcher
-        // Use this Actors' Dispatcher as ExecutionContext
 
+        import context.dispatcher
         context.system.scheduler.scheduleOnce(emailMessage.get.retryOn, self, emailMessage.get)
       }
     }
