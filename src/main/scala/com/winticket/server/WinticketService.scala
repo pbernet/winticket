@@ -4,13 +4,13 @@ import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
-import akka.http.scaladsl.model.StatusCodes.OK
+import akka.http.scaladsl.model.StatusCodes.{OK, _}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-cache`, `no-store`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
-import akka.http.scaladsl.server.{Route, StandardRoute}
+import akka.http.scaladsl.server.{ExceptionHandler, Route, StandardRoute}
 import akka.stream.scaladsl.FileIO
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -137,6 +137,16 @@ trait WinticketService extends BaseService with DrawingAPI {
       )
     }
   }
+
+
+  implicit def customExceptionHandler: ExceptionHandler =
+    ExceptionHandler {
+      case ex: Exception =>
+        extractUri { uri =>
+          log.error(s"Request to $uri produced an exception. Details: ${ex.getMessage}")
+          complete(HttpResponse(InternalServerError, entity = "The system can currently not process your request. Please try again later."))
+        }
+    }
 
   def routes: Route = logRequestResult("winticket") {
     subscriptionRoute ~ adminRoute ~ uploadRoute ~ publicResourcesRoute
