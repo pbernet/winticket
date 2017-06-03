@@ -88,15 +88,10 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       import context.dispatcher
       implicit val timeout = Timeout(5 seconds)
 
-      var listOfFutures = List[Future[List[SubscriptionRecord]]]()
       val origSender = sender()
 
-      context.children.foreach { drawingActor =>
-        val subscriptionsFuture: Future[List[SubscriptionRecord]] = ask(drawingActor, GetSubscribtions).mapTo[List[SubscriptionRecord]]
-        listOfFutures = subscriptionsFuture :: listOfFutures
-      }
-      val futureList = Future.sequence(listOfFutures)
-      futureList onComplete {
+      val finalResult = Future.sequence(context.children.map(drawingActor => ask(drawingActor, GetSubscribtions).mapTo[List[SubscriptionRecord]]))
+      finalResult onComplete {
         case Success(result)  => origSender ! result
         case Failure(failure) => log.error(s"Error occurred while collecting subscriptions. Details: $failure")
       }
@@ -105,16 +100,10 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       import context.dispatcher
       implicit val timeout = Timeout(5 seconds)
 
-      var listOfFutures = List[Future[DrawingReport]]()
       val origSender = sender()
 
-      context.children.foreach { drawingActor =>
-        val drawingsFuture: Future[DrawingReport] = ask(drawingActor, GetDrawingReport).mapTo[DrawingReport]
-        listOfFutures = drawingsFuture :: listOfFutures
-      }
-
-      val futureList = Future.sequence(listOfFutures)
-      futureList onComplete {
+      val finalResult = Future.sequence(context.children.map(drawingActor => ask(drawingActor, GetDrawingReport).mapTo[DrawingReport]))
+      finalResult onComplete {
         case Success(result)  => origSender ! result
         case Failure(failure) => log.error(s"Error occurred while collecting DrawingReports. Details: $failure")
       }
