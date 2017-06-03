@@ -63,7 +63,7 @@ class GeoIPCheckerActor(drawingActorSupervisor: ActorRef) extends PersistentActo
   final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
 
   private val config = ConfigFactory.load()
-  private val restClient = RestClient(geoipHost, geoipPort, ConnectionPoolSettings(config))(context.system, materializer)
+  private val restClient = RestClient(geoipHost, geoipPort, ConnectionPoolSettings(config))(context.system, materializer, log)
 
   val receiveRecover: Receive = {
     case evt: IPCheckRecordAdded =>

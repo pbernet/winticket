@@ -1,7 +1,7 @@
 package com.winticket.server
 
 import akka.actor.ActorSystem
-import akka.event.slf4j.Logger
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.settings.ConnectionPoolSettings
@@ -24,16 +24,14 @@ case class ResultWrapper(req: HttpResponse, ctx: Any)
  * @param system An actor system in which to execute the requests
  * @param materializer A flow materialiser
  */
-case class RestClient(address: String, port: Int, poolSettings: ConnectionPoolSettings)(implicit val system: ActorSystem, implicit val materializer: ActorMaterializer) {
-
-  val logger = Logger(this.getClass.getName)
+case class RestClient(address: String, port: Int, poolSettings: ConnectionPoolSettings)(implicit val system: ActorSystem, implicit val materializer: ActorMaterializer, implicit val log: LoggingAdapter) {
 
   import system.dispatcher
   private val pool = Http().cachedHostConnectionPool[Int](address, port, poolSettings)
   private val poolAny = Http().cachedHostConnectionPool[Any](address, port, poolSettings)
 
-  logger.info("Loaded from config akka.http.client.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.client.host-connection-pool.max-connections"))
-  logger.info("Loaded from config akka.http.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.host-connection-pool.max-connections"))
+  log.info("Loaded from config akka.http.client.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.client.host-connection-pool.max-connections"))
+  log.info("Loaded from config akka.http.host-connection-pool.max-connections: " + ConfigFactory.load().getInt("akka.http.host-connection-pool.max-connections"))
 
   /**
    * Execute a single request using the connection pool.
