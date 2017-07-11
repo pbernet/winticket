@@ -203,6 +203,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     (post & extractRequest) {
       request =>
         {
+          //TODO Replace with uploadedFile directive as implemented in TestMultipartFileUpload
           val source = request.entity.dataBytes
           val outFile: Path = Paths.get("/tmp/outfile.dat")
           val sink = FileIO.toPath(outFile)

@@ -20,6 +20,16 @@ import akka.stream.scaladsl.{FileIO, Source}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+/**
+  * Standalone (server and client) app to upload a file via HTTP
+  * It requires:
+  * - The file path as program argument, eg: "/myPath/data/events_production.csv"
+  *
+  * Current server implementations:
+  * - upload: The original manual implementation from: https://gist.github.com/jrudolph/08d0d28e1eddcd64dbd0
+  * - fileUpload: Use the akka-http fileUpload directive, but don't do streaming on the content as in: http://doc.akka.io/docs/akka-http/10.0.6/scala/http/routing-dsl/directives/file-upload-directives/fileUpload.html#fileupload
+  * - uploadedFile: Use the akka-http uploadedFile directive as in: http://doc.akka.io/docs/akka-http/10.0.6/scala/http/routing-dsl/directives/file-upload-directives/uploadedFile.html
+  */
 object TestMultipartFileUpload extends App {
 
   implicit val system = ActorSystem("TestMultipartFileUpload")
@@ -34,7 +44,7 @@ object TestMultipartFileUpload extends App {
     import akka.http.scaladsl.server.Directives._
 
 
-    def uploadRoute1 = path("upload") {
+    def uploadRoute = path("upload") {
       entity(as[Multipart.FormData]) { (formdata: Multipart.FormData) ⇒
         val fileNamesFuture = formdata.parts.mapAsync(1) { p ⇒
           println(s"Got part. name: ${p.name} filename: ${p.filename}")
@@ -75,9 +85,9 @@ object TestMultipartFileUpload extends App {
       }
     }
 
-    def uploadRoute2 = path("uploaddata2") {
+    def fileUploadDirectiveRoute = path("fileUploadDirectiveRoute") {
       post {
-        fileUpload("test") {
+        fileUpload("binary") {
           case (fileInfo, fileStream) =>
             val sink = FileIO.toPath(Paths.get("/tmp") resolve fileInfo.fileName)
             val writeResult = fileStream.runWith(sink)
@@ -91,20 +101,31 @@ object TestMultipartFileUpload extends App {
       }
     }
 
-    val route: Route = uploadRoute1 ~ uploadRoute2
+    def uploadedFileDirectiveRoute = path("uploadedFileDirectiveRoute") {
+      uploadedFile("binary") {
+        case (metadata, file) =>
+          println(s"Successfully written ${file.length} bytes to: ${file.getPath}")
+          //TODO do sth with the file
+          file.delete()
+          complete(StatusCodes.OK)
+      }
+    }
+
+    val route: Route = uploadRoute ~ fileUploadDirectiveRoute ~ uploadedFileDirectiveRoute
     Http().bindAndHandle(route, interface = "localhost", port = 0)
   }
 
   def createEntity(file: File): Future[RequestEntity] = {
     require(file.exists())
     val fileSource = FileIO.fromPath(file.toPath, chunkSize = 100000)
-    val formData =
-      Multipart.FormData(
-        Source.single(
-          Multipart.FormData.BodyPart(
-            "test",
-            HttpEntity(MediaTypes.`application/octet-stream`, file.length(), fileSource), // the chunk size here is currently critical for performance
-            Map("filename" -> file.getName))))
+
+    //For Strict content types see:
+    //http://doc.akka.io/docs/akka-http/10.0.6/scala/http/routing-dsl/directives/file-upload-directives/fileUpload.html#fileupload
+    val formData = Multipart.FormData(Multipart.FormData.BodyPart(
+      "binary",
+      HttpEntity(MediaTypes.`application/octet-stream`,file.length(), fileSource),
+      Map("filename" -> file.getName)))
+
     Marshal(formData).to[RequestEntity]
   }
 
@@ -119,15 +140,15 @@ object TestMultipartFileUpload extends App {
         ServerBinding(address) ← startTestServer()
         _ = println(s"Server up at $address")
         port = address.getPort
-        target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/uploaddata2"))
+        target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/uploadedFileDirectiveRoute"))
         req ← createRequest(target, testFile)
-        _ = println(s"Running request, uploading test file of size ${testFile.length} bytes")
+        _ = println(s"Client running request, uploading test file of size ${testFile.length} bytes")
         response ← Http().singleRequest(req)
         responseBodyAsString ← Unmarshal(response).to[String]
       } yield responseBodyAsString
 
     result.onComplete { res ⇒
-      println(s"The result was $res")
+      println(s"Client received result: $res")
       system.terminate()
     }
 
