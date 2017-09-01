@@ -49,43 +49,39 @@ trait WinticketService extends BaseService with DrawingAPI {
 
   def getSubscriptions: Elem = {
     <ul>
-      {
-        askForSubscriptions.map { eachList =>
-          eachList.map { eachElement =>
-            <li>
-              { eachElement.toString() }
-            </li>
-          }
-        }
+      {askForSubscriptions.map { eachList =>
+      eachList.map { eachElement =>
+        <li>
+          {eachElement.toString()}
+        </li>
       }
+    }}
     </ul>
   }
 
   def getDrawingReports: Elem = {
     <ul>
-      {
-        askForDrawingReports.map { eachElement =>
-          <li>
-            { eachElement.toString() } <a target="_blank" href={eachElement.subscriptionLink}>Subscribe</a>
-          </li>
-        }
-      }
+      {askForDrawingReports.map { eachElement =>
+      <li>
+        {eachElement.toString()}<a target="_blank" href={eachElement.subscriptionLink}>Subscribe</a>
+      </li>
+    }}
     </ul>
   }
 
   private def isEMailValid(e: String): Boolean = e match {
-    case null                                            => false
-    case `e` if e.trim.isEmpty                           => false
+    case null => false
+    case `e` if e.trim.isEmpty => false
     case `e` if emailRegex.findFirstMatchIn(e).isDefined => true
-    case _                                               => false
+    case _ => false
   }
 
   private def basicAuthenticator: Authenticator[UserPass] = {
-    case missing @ Missing => {
+    case missing@Missing => {
       log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
       None
     }
-    case provided @ Provided(_) => {
+    case provided@Provided(_) => {
       log.info(s"Received UserCredentials is: $provided")
       if (provided.identifier == adminUsername && provided.verify(adminPassword)) {
         Some(UserPass("admin", ""))
@@ -159,7 +155,7 @@ trait WinticketService extends BaseService with DrawingAPI {
         val clientIPOption = clientIP.toOption.map(_.getHostAddress)
         commandORsubscriptionEMail match {
           case "subscribe" => handleSubscribe(tennantID, tennantYear, drawingEventID)
-          case _           => processSubscription(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
+          case _ => processSubscription(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
         }
       }
     }
@@ -181,9 +177,9 @@ trait WinticketService extends BaseService with DrawingAPI {
             <html>
               <body>
                 DrawingReports:
-                <br/>{ getDrawingReports }
+                <br/>{getDrawingReports}
                 Subscriptions:
-                { getSubscriptions }
+                {getSubscriptions}
               </body>
             </html>
           }
@@ -203,7 +199,9 @@ trait WinticketService extends BaseService with DrawingAPI {
     (post & extractRequest) {
       request =>
         {
-          //TODO Replace with uploadedFile directive as implemented in TestMultipartFileUpload
+          //TODO Refactor this with uploadedFile directive as implemented below in uploadTest does not work with filedrop.js
+          //since the uploadedFile directive asks for "fieldName", which is not present in the HTTP request
+          //Maybe this is related to: https://github.com/akka/akka-http/issues/541
           val source = request.entity.dataBytes
           val outFile: Path = Paths.get("/tmp/outfile.dat")
           val sink = FileIO.toPath(outFile)
@@ -226,12 +224,13 @@ trait WinticketService extends BaseService with DrawingAPI {
   }
 
   private def uploadTest = path("uploadtest") {
+
     (post & extractRequest) {
       request => {
-        log.info(s"Recieved request $request")
+        log.info(s"Received request $request")
         uploadedFile("csv") {
           case (metadata, file) =>
-            log.info(s"Recieved uploaded file: ${file.getName} with metadata: $metadata ")
+            log.info(s"Received uploaded file: ${file.getName} with metadata: ${metadata.fieldName} ")
             file.delete()
             complete(StatusCodes.OK)
         }
