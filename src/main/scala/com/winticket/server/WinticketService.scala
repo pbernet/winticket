@@ -230,7 +230,7 @@ trait WinticketService extends BaseService with DrawingAPI {
         log.info(s"Received request $request")
         uploadedFile("csv") {
           case (metadata, file) =>
-            log.info(s"Received uploaded file: ${file.getName} with metadata: ${metadata.fieldName} ")
+            log.info(s"Received uploaded file: ${file.getName} with metadata: $metadata ")
             file.delete()
             complete(StatusCodes.OK)
         }
