@@ -8,20 +8,15 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{FileIO, Source}
+import akka.stream.scaladsl.FileIO
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
- * Test client for upload a test data file via HTTP
- * It requires:
- * - WinticketMicroserviceMain to run on localhost
- * - The file path as program argument, eg: "/myPath/data/events_production.csv"
+ * Test client for upload an internal test data file via HTTP
+ * It requires WinticketMicroserviceMain to run on localhost
  *
- * Side effect:
- * - The uploaded file on the server contains Metainformation at the beginning of the file...
- * - This does not happen when the upload is done from the admin app in the Browser
  */
 object FileUpload extends App {
 
@@ -33,17 +28,16 @@ object FileUpload extends App {
     require(filePath.toFile.exists())
     val source = FileIO.fromPath(filePath, chunkSize = 100000) // the chunk size here is currently critical for performance
     val mediaTypeWithCharSet = MediaTypes.`text/csv` withCharset HttpCharsets.`UTF-8`
-    val indef = HttpEntity.IndefiniteLength(mediaTypeWithCharSet, source)
-    val formData =
+    val indef: HttpEntity = HttpEntity.IndefiniteLength(mediaTypeWithCharSet, source)
+
+    val multipartForm =
       Multipart.FormData(
-        Source.single(
-          Multipart.FormData.BodyPart(
-            "uploadtest",
-            indef
-          )
-        )
-      )
-    Marshal(formData).to[RequestEntity]
+        Multipart.FormData.BodyPart.Strict(
+          "csv",
+          HttpEntity(ContentTypes.`text/plain(UTF-8)`, "1,5,7\n11,13,17"),
+          Map("filename" -> "data.csv")))
+
+    Marshal(multipartForm).to[RequestEntity]
   }
 
   def createRequest(target: Uri, filePath: Path): Future[HttpRequest] =
@@ -54,7 +48,7 @@ object FileUpload extends App {
 
   try {
     val port = 9000
-    val target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/upload"))
+    val target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/uploadtest"))
 
     val testFilePath: Path = Paths.get(args(0))
     val result =

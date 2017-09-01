@@ -149,7 +149,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
 
   def routes: Route = logRequestResult("winticket") {
-    subscriptionRoute ~ adminRoute ~ uploadRoute ~ publicResourcesRoute
+    subscriptionRoute ~ adminRoute ~ uploadRoute ~ uploadTest ~ publicResourcesRoute
   }
 
   private def subscriptionRoute = pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
@@ -221,6 +221,20 @@ trait WinticketService extends BaseService with DrawingAPI {
             complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
           }
         }
+    }
+  }
+
+  private def uploadTest = path("uploadtest") {
+    (post & extractRequest) {
+      request => {
+        log.info(s"Recieved request $request")
+        uploadedFile("csv") {
+          case (metadata, file) =>
+            log.info(s"Recieved uploaded file: ${file.getName} with metadata: $metadata ")
+            file.delete()
+            complete(StatusCodes.OK)
+        }
+      }
     }
   }
 
