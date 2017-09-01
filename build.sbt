@@ -13,8 +13,8 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.0-M2"
-  val akkaV            = "2.5.2"
-  val akkaHttpV        = "10.0.6"
+  val akkaV            = "2.5.4"
+  val akkaHttpV        = "10.0.10"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.5"
   val scalaTestV       = "3.0.1"
@@ -27,7 +27,7 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-stream"                          % akkaV,
     "com.typesafe.akka" %% "akka-http-spray-json"                 % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j"                           % akkaV,
-    "ch.qos.logback"     % "logback-classic"                      % "1.1.7",
+    "ch.qos.logback"     % "logback-classic"                      % "1.2.3",
 
     "com.typesafe.akka" %% "akka-persistence"                     % akkaV,
     //TODO Only one of those two needs to be used
