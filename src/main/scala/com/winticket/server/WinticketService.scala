@@ -66,7 +66,7 @@ trait WinticketService extends BaseService with DrawingAPI {
       {
         askForDrawingReports.map { eachElement =>
           <li>
-            { eachElement.toString() }
+            { eachElement.toString() } <a target="_blank" href={eachElement.subscriptionLink}>Subscribe</a>
           </li>
         }
       }

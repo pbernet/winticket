@@ -44,6 +44,7 @@ object DrawingActor {
   }
 
   case class DrawingReport(tennantID: String = "N/A", year: Int = 1970, eventID: String = "N/A", drawingEventDate: DateTime = DateTime.now, drawingEventName: String = "N/A", winnerEMail: String = "N/A", uniqueSubscriptions: Int = 0, totalSubscriptions: Int = 0) {
+    def subscriptionLink = s"./../../$tennantID/$year/$eventID/subscribe"
     override def toString = { s"Event: $tennantID-$year-$eventID Date/Name: $drawingEventDate/$drawingEventName Winner: $winnerEMail Subscriptions: ($uniqueSubscriptions/$totalSubscriptions) " }
   }
 
