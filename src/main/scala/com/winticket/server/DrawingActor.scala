@@ -40,6 +40,7 @@ object DrawingActor {
   }
 
   case class SubscriptionRecord(tennantID: String, year: String, eventID: String, email: String, ip: String, date: DateTime) {
+    def removeLink = s"./../../$tennantID/$year/$eventID/remove/$ip"
     override def toString = { s"$tennantID-$year-$eventID, $email,$ip,${date.toIsoDateTimeString()}" }
   }
 

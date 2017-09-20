@@ -16,6 +16,8 @@ import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
+import com.winticket.server.DrawingActorSupervisor.RemoveSubscription
+import com.winticket.server.GeoIPCheckerActor.IPCheckRecord
 import com.winticket.util.{DataLoaderHelper, RenderHelper}
 
 import scala.collection.JavaConverters._
@@ -50,9 +52,9 @@ trait WinticketService extends BaseService with DrawingAPI {
   def getSubscriptions: Elem = {
     <ul>
       {askForSubscriptions.map { eachList =>
-      eachList.map { eachElement =>
+      eachList.map { (eachElement: SubscriptionRecord) =>
         <li>
-          {eachElement.toString()}
+          {eachElement.toString()} <a target="_blank" href={eachElement.removeLink}>Delete</a>
         </li>
       }
     }}
@@ -145,7 +147,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
 
   def routes: Route = logRequestResult("winticket") {
-    subscriptionRoute ~ adminRoute ~ uploadRoute ~ uploadTest ~ publicResourcesRoute
+    subscriptionRoute ~ subscriptionRemoveRoute ~ adminRoute ~ uploadRoute ~ uploadTest ~ publicResourcesRoute
   }
 
   private def subscriptionRoute = pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
@@ -159,7 +161,13 @@ trait WinticketService extends BaseService with DrawingAPI {
         }
       }
     }
+  }
 
+  private def subscriptionRemoveRoute = pathPrefix(tennantMap / IntNumber / IntNumber / "remove") { (tennantID, tennantYear, drawingEventID) =>
+    (get & path(Segment)) { ip =>
+      supervisor ! RemoveSubscription(IPCheckRecord(tennantID,tennantYear,drawingEventID, Some(ip)))
+      complete(HttpResponse(status = StatusCodes.OK, entity = "Subscription removed."))
+    }
   }
 
   private def adminRoute = pathPrefix("admin" / "cmd") {
