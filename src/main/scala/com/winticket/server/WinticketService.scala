@@ -147,7 +147,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
 
   def routes: Route = logRequestResult("winticket") {
-    subscriptionRoute ~ subscriptionRemoveRoute ~ adminRoute ~ uploadRoute ~ uploadTest ~ publicResourcesRoute
+    subscriptionRoute ~ adminRoute ~ uploadRoute ~ uploadTest ~ publicResourcesRoute
   }
 
   private def subscriptionRoute = pathPrefix(tennantMap / IntNumber / IntNumber) { (tennantID, tennantYear, drawingEventID) =>
@@ -163,38 +163,35 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
   }
 
-  private def subscriptionRemoveRoute = pathPrefix(tennantMap / IntNumber / IntNumber / "remove") { (tennantID, tennantYear, drawingEventID) =>
-    (get & path(Segment)) { ip =>
-      supervisor ! RemoveSubscription(IPCheckRecord(tennantID,tennantYear,drawingEventID, Some(ip)))
-      complete(HttpResponse(status = StatusCodes.OK, entity = "Subscription removed."))
-    }
-  }
-
   private def adminRoute = pathPrefix("admin" / "cmd") {
     authenticateBasic(realm = "admin area", basicAuthenticator) { user =>
-
       log.info("User is: " + user.username)
-
-      (get & path(Segment)) {
-        case "startDrawings" => {
-          supervisor ! DrawWinner
-          complete(HttpResponse(status = StatusCodes.OK, entity = "Drawings for all events started..."))
-        }
-        case "showReport" => {
-          complete {
-            <html>
-              <body>
-                DrawingReports:
-                <br/>{getDrawingReports}
-                Subscriptions:
-                {getSubscriptions}
-              </body>
-            </html>
+      get {
+        path(Segment) {
+          case "startDrawings" => {
+            supervisor ! DrawWinner
+            complete(HttpResponse(status = StatusCodes.OK, entity = "Drawings for all events started..."))
           }
-        }
-        case "fileUpload" => {
-          getFromResource("admin/fileupload.html")
-        }
+          case "showReport" => {
+            complete {
+              <html>
+                <body>
+                  DrawingReports:
+                  <br/>{getDrawingReports}
+                  Subscriptions:
+                  {getSubscriptions}
+                </body>
+              </html>
+            }
+          }
+          case "fileUpload" => {
+            getFromResource("admin/fileupload.html")
+          }
+        } ~
+          path(tennantMap / IntNumber / IntNumber / "remove" / Segment) { (tennantID, tennantYear, drawingEventID, ip) =>
+            supervisor ! RemoveSubscription(IPCheckRecord(tennantID, tennantYear, drawingEventID, Some(ip)))
+            complete(HttpResponse(status = StatusCodes.OK, entity = "Subscription removed."))
+          }
       }
     }
   }
