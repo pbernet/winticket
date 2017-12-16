@@ -51,39 +51,43 @@ trait WinticketService extends BaseService with DrawingAPI {
 
   def getSubscriptions: Elem = {
     <ul>
-      {askForSubscriptions.map { eachList =>
-      eachList.map { (eachElement: SubscriptionRecord) =>
-        <li>
-          {eachElement.toString()} <a target="_blank" href={eachElement.removeLink}>Delete</a>
-        </li>
+      {
+        askForSubscriptions.map { eachList =>
+          eachList.map { (eachElement: SubscriptionRecord) =>
+            <li>
+              { eachElement.toString() }<a target="_blank" href={ eachElement.removeLink }>Delete</a>
+            </li>
+          }
+        }
       }
-    }}
     </ul>
   }
 
   def getDrawingReports: Elem = {
     <ul>
-      {askForDrawingReports.map { eachElement =>
-      <li>
-        {eachElement.toString()}<a target="_blank" href={eachElement.subscriptionLink}>Subscribe</a>
-      </li>
-    }}
+      {
+        askForDrawingReports.map { eachElement =>
+          <li>
+            { eachElement.toString() }<a target="_blank" href={ eachElement.subscriptionLink }>Subscribe</a>
+          </li>
+        }
+      }
     </ul>
   }
 
   private def isEMailValid(e: String): Boolean = e match {
-    case null => false
-    case `e` if e.trim.isEmpty => false
+    case null                                            => false
+    case `e` if e.trim.isEmpty                           => false
     case `e` if emailRegex.findFirstMatchIn(e).isDefined => true
-    case _ => false
+    case _                                               => false
   }
 
   private def basicAuthenticator: Authenticator[UserPass] = {
-    case missing@Missing => {
+    case missing @ Missing => {
       log.info(s"Received UserCredentials is: $missing challenge the browser to ask the user again")
       None
     }
-    case provided@Provided(_) => {
+    case provided @ Provided(_) => {
       log.info(s"Received UserCredentials is: $provided")
       if (provided.identifier == adminUsername && provided.verify(adminPassword)) {
         Some(UserPass("admin", ""))
@@ -136,7 +140,6 @@ trait WinticketService extends BaseService with DrawingAPI {
     }
   }
 
-
   implicit def customExceptionHandler: ExceptionHandler =
     ExceptionHandler {
       case ex: Exception =>
@@ -157,7 +160,7 @@ trait WinticketService extends BaseService with DrawingAPI {
         val clientIPOption = clientIP.toOption.map(_.getHostAddress)
         commandORsubscriptionEMail match {
           case "subscribe" => handleSubscribe(tennantID, tennantYear, drawingEventID)
-          case _ => processSubscription(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
+          case _           => processSubscription(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIPOption)
         }
       }
     }
@@ -177,9 +180,9 @@ trait WinticketService extends BaseService with DrawingAPI {
               <html>
                 <body>
                   DrawingReports:
-                  <br/>{getDrawingReports}
+                  <br/>{ getDrawingReports }
                   Subscriptions:
-                  {getSubscriptions}
+                  { getSubscriptions }
                 </body>
               </html>
             }
@@ -197,9 +200,9 @@ trait WinticketService extends BaseService with DrawingAPI {
   }
 
   /**
-    * Upload the content to a file and then parse the CSV via the "product-collections" lib
-    * This approach allows for easier conversion CSV -> CreateDrawing at the cost of having the data in memory
-    */
+   * Upload the content to a file and then parse the CSV via the "product-collections" lib
+   * This approach allows for easier conversion CSV -> CreateDrawing at the cost of having the data in memory
+   */
   private def uploadRoute = path("uploaddata") {
     (post & extractRequest) {
       request =>
@@ -219,7 +222,8 @@ trait WinticketService extends BaseService with DrawingAPI {
 
             val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile.toFile), hasHeader = true)).toList
             val convertStatus = aListOfDrawingEventsTry.map {
-              case Success(content) => createDrawing(content); s"\nOK ${content.drawingEventID} - ${content.drawingEventName}"
+              case Success(content) =>
+                createDrawing(content); s"\nOK ${content.drawingEventID} - ${content.drawingEventName}"
               case Failure(f)       => log.error(f.getMessage); s"\nERROR while converting: ${f.getMessage}"
             }
             complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
@@ -231,15 +235,16 @@ trait WinticketService extends BaseService with DrawingAPI {
   private def uploadTest = path("uploadtest") {
 
     (post & extractRequest) {
-      request => {
-        log.info(s"Received request $request")
-        uploadedFile("csv") {
-          case (metadata, file) =>
-            log.info(s"Received uploaded file: ${file.getName} with metadata: $metadata ")
-            file.delete()
-            complete(StatusCodes.OK)
+      request =>
+        {
+          log.info(s"Received request $request")
+          uploadedFile("csv") {
+            case (metadata, file) =>
+              log.info(s"Received uploaded file: ${file.getName} with metadata: $metadata ")
+              file.delete()
+              complete(StatusCodes.OK)
+          }
         }
-      }
     }
   }
 
