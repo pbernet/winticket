@@ -4,7 +4,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "0.0.6"
+version       := "0.0.8"
 scalaVersion  := "2.11.11"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
