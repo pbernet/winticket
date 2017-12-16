@@ -2,7 +2,7 @@
 set -x
 
 # set the version label
-VERSION_LABEL=v47
+VERSION_LABEL=v101
 
 PKG=winticket_pkg
 
@@ -12,7 +12,7 @@ sbt docker:stage
 # TODO Is this workaround still needed: Currently the generated  ./target/Docker/Dockerfile needs to be patched when deployed on aws: Replace this line
 # Produces: COPY stage /
 sed -i '' '4s/.*/COPY stage \//' ./target/Docker/Dockerfile
-# Remove missplaced file
+# Remove misplaced file
 rm -f  ./target/docker/stage/Dockerfile
 
 # Copy Dockerrun.aws.json to target/docker
