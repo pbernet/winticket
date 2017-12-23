@@ -48,8 +48,9 @@ libraryDependencies ++= {
     "org.typelevel"     %% "scalaz-scalatest"                     % scalazScalaTestV % "it,test",
     "com.typesafe.akka" %% "akka-http-testkit"                    % akkaHttpV        % "it,test",
     //needed for experimental ScalaTest/Gatling integration for REST API Testing
-    "io.gatling" % "gatling-test-framework" % "2.2.0" % "it, test"
-
+    "io.gatling" % "gatling-test-framework" % "2.2.0" % "it, test",
+    //MailChimp API
+    "com.ecwid" %	"maleorang" %	"3.0-0.9.6"
   )
 }
 
