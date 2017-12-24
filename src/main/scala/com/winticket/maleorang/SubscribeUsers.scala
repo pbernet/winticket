@@ -14,8 +14,8 @@ import scala.concurrent.duration._
 
 /**
   * TODO Verify exceptions before using on prod data
-  * - Add logging also about failures
-  * - Add CHECK the current user status - if user is in status "unsubscribed" OR "cleaned" - do not change to subscribe!
+  * - A user which was set to "unsubscribed" via GUI produces a 404 - this should not happen
+  * - Beautify workflow
   *
   */
 object SubscribeUsers {
@@ -39,34 +39,36 @@ object SubscribeUsers {
   }
 
   def main(args: Array[String]): Unit = {
-
     FileIO.fromPath(Paths.get(pathToCSV))
       .via(Framing.delimiter(ByteString("\n"), 1024))
       .map(_.utf8String.split(",").toVector)
       .throttle(1, 1.second, 1, ThrottleMode.shaping)
-      .runForeach {
-        subscribeTo(listId)
-      }
+      .runForeach(subscribeTo(listId))
   }
 
   private def subscribeTo(listId: String) = {
     eachRecord: Seq[String] =>
-     println(s"About to subscribe: $eachRecord with length: ${eachRecord.length}")
+      println(s"About to subscribe: $eachRecord with length: ${eachRecord.length}")
       if (isEMailValid(eachRecord.head) && eachRecord.length == 3) {
-        try {
-          val method = new EditMemberMethod.CreateOrUpdate(listId, eachRecord.head)
-          method.status = "subscribed"
-          method.merge_fields = new MailchimpObject()
-          method.merge_fields.mapping.put("FNAME", eachRecord(1))
-          method.merge_fields.mapping.put("LNAME", eachRecord(2))
-          val member = client.execute(method)
-          System.out.println("The user has been successfully subscribed: " + member)
-        } catch {
+          try {
+            val status = new LookupMethod(apiKey, listId).run()
+            System.out.println("STATUS: " + status)
+            if (status == "unsubscribed" || status == "pending" || status == "cleaned") {
+              println(s"User: $eachRecord is in status $status and thus will not be subscribed")
+
+            } else {
+              createOrUpdate(listId, eachRecord)
+            }
+          } catch {
+            case e: MailchimpException => {   //Can I match for the code?
+              System.out.println("MailchimpException: " + e.code)
+              if (e.code == 404) {
+                createOrUpdate(listId, eachRecord)
+              } else {
+                //do nothing
+              }
+            }
           case e: RuntimeException =>
-            e.printStackTrace()
-          case e: MailchimpException =>
-            e.printStackTrace()
-          case e: IOException =>
             e.printStackTrace()
         } finally try {
           client.close()
@@ -77,5 +79,15 @@ object SubscribeUsers {
             e.printStackTrace()
         }
       }
+  }
+
+  private def createOrUpdate(listId: String, eachRecord: Seq[String]) = {
+    val createOrUpdate = new EditMemberMethod.CreateOrUpdate(listId, eachRecord.head)
+    createOrUpdate.status = "subscribed"
+    createOrUpdate.merge_fields = new MailchimpObject()
+    createOrUpdate.merge_fields.mapping.put("FNAME", eachRecord(1))
+    createOrUpdate.merge_fields.mapping.put("LNAME", eachRecord(2))
+    val member = client.execute(createOrUpdate)
+    System.out.println(s"The user: $eachRecord has been successfully subscribed: $member")
   }
 }
