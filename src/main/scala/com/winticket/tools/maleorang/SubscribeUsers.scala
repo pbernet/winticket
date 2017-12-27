@@ -1,4 +1,4 @@
-package com.winticket.maleorang
+package com.winticket.tools.maleorang
 
 import java.io.IOException
 import java.nio.file.Paths

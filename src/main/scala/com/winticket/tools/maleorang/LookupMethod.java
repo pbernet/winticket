@@ -1,4 +1,4 @@
-package com.winticket.maleorang;
+package com.winticket.tools.maleorang;
 
 import com.ecwid.maleorang.MailchimpClient;
 import com.ecwid.maleorang.MailchimpMethod;
