@@ -99,19 +99,10 @@ trait WinticketService extends BaseService with DrawingAPI {
 
   private def processSubscription(tennantID: String, tennantYear: Int, drawingEventID: Int, commandORsubscriptionEMail: String, clientIP: Option[String]): StandardRoute = {
     if (isEMailValid(commandORsubscriptionEMail)) {
-
       subscribe(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIP)
 
-      val mediaTypeWithCharSet = MediaTypes.`text/html` withCharset HttpCharsets.`UTF-8`
-      complete {
-        HttpResponse(
-          status = OK,
-          entity = HttpEntity(
-            mediaTypeWithCharSet,
-            RenderHelper.getFromResourceRenderedWith("/web/confirm.html", Map("subscriptionEMail" -> commandORsubscriptionEMail))
-          )
-        )
-      }
+      val uri = Uri.from(scheme = "http", host = httpInterface, port = httpPort, path = "/confirm.html", queryString = Some(s"subscriptionEMail=$commandORsubscriptionEMail&drawingDays=$drawingDateDeltaDaysBackwards"))
+      redirect(uri, StatusCodes.Found)
     } else {
       complete {
         <html>

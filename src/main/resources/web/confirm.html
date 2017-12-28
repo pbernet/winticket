@@ -1,18 +1,39 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="initial-scale=1.0">
-  <title>Bestätigung Teilnahme</title>
-  <link href="http://fonts.googleapis.com/css?family=Oswald:700" rel="stylesheet" type="text/css">
-  <link rel="stylesheet" href="./../../../css/standardize.css">
-  <link rel="stylesheet" href="./../../../css/confirmationpage-grid.css">
-  <link rel="stylesheet" href="./../../../css/styles.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0">
+    <title>Bestätigung Teilnahme</title>
+    <link href="http://fonts.googleapis.com/css?family=Oswald:700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="./../../../css/standardize.css">
+    <link rel="stylesheet" href="./../../../css/confirmationpage-grid.css">
+    <link rel="stylesheet" href="./../../../css/styles.css">
+
+    <script language="javascript">
+        var urlParams;
+        (window.onpopstate = function () {
+            var match,
+                pl = /\+/g,  // Regex for replacing addition symbol with a space
+                search = /([^&=]+)=?([^&]*)/g,
+                decode = function (s) {
+                    return decodeURIComponent(s.replace(pl, " "));
+                },
+                query = window.location.search.substring(1);
+
+            urlParams = {};
+            while (match = search.exec(query))
+                urlParams[decode(match[1])] = decode(match[2]);
+        })();
+    </script>
 </head>
 <body class="body page-confirmationpage clearfix">
-  <div id="headerimage" class="element element-3"></div>
-  <div id="entry" class="container_text clearfix">
-  <p id="confirmation" class="text text-4">Die Teilnahme war erfolgreich.<br><strong>Die Verlosung ist sieben Tage vor der Veranstaltung.&nbsp;</strong><br><strong> Die GewinnerIn wird benachrichtigt via Email.&nbsp;</strong><br>Eine Bestätigung der Teilnahme wurde gesendet an: %%subscriptionEMail%%</p>
-  </div>
+<div id="headerimage" class="element element-3"></div>
+<div id="entry" class="container_text clearfix">
+    <p id="confirmation" class="text text-4">Die Teilnahme war erfolgreich.<br><strong>Die Verlosung ist <script language="javascript">document.write(urlParams["drawingDays"])</script> Tage vor
+        der Veranstaltung.&nbsp;</strong><br><strong> Die GewinnerIn wird benachrichtigt via Email.&nbsp;</strong><br>Eine
+        Bestätigung der Teilnahme wurde gesendet an:
+        <script language="javascript">document.write(urlParams["subscriptionEMail"])</script>
+    </p>
+</div>
 </body>
 </html>
