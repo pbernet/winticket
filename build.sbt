@@ -5,21 +5,21 @@ import scalariform.formatter.preferences._
 name          := """winticket"""
 organization  := "com.winticket"
 version       := "1.0.0"
-scalaVersion  := "2.11.11"
+scalaVersion  := "2.12.4"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
   "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
 
 
 libraryDependencies ++= {
-  val scalazV          = "7.2.0-M2"
+  val scalazV          = "7.2.18"
   val akkaV            = "2.5.8"
   val akkaHttpV        = "10.0.10"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.5"
-  val scalaTestV       = "3.0.1"
+  val scalaTestV       = "3.0.4"
   val scalaMockV       = "3.6.0"
-  val scalazScalaTestV = "0.2.3"
+  val scalazScalaTestV = "1.1.2"
   Seq(
     "org.scalaz"        %% "scalaz-core"                          % scalazV,
     "com.typesafe.akka" %% "akka-http-core"                       % akkaHttpV,
@@ -48,7 +48,7 @@ libraryDependencies ++= {
     "org.typelevel"     %% "scalaz-scalatest"                     % scalazScalaTestV % "it,test",
     "com.typesafe.akka" %% "akka-http-testkit"                    % akkaHttpV        % "it,test",
     //needed for experimental ScalaTest/Gatling integration for REST API Testing
-    "io.gatling" % "gatling-test-framework" % "2.2.0" % "it, test",
+    "io.gatling" % "gatling-test-framework" % "2.3.0" % "it, test",
     //MailChimp API
     "com.ecwid" %	"maleorang" %	"3.0-0.9.6"
   )
