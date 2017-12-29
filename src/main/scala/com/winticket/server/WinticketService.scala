@@ -101,8 +101,8 @@ trait WinticketService extends BaseService with DrawingAPI {
     if (isEMailValid(commandORsubscriptionEMail)) {
       subscribe(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIP)
 
-      val uri = Uri.from(scheme = "http", host = httpInterface, port = httpPort, path = "/confirm.html", queryString = Some(s"subscriptionEMail=$commandORsubscriptionEMail&drawingDays=$drawingDateDeltaDaysBackwards"))
-      redirect(uri, StatusCodes.Found)
+      val minUri = Uri.from(path = "/confirm.html", queryString = Some(s"subscriptionEMail=$commandORsubscriptionEMail&drawingDays=$drawingDateDeltaDaysBackwards") )
+      redirect(minUri, StatusCodes.Found)
     } else {
       complete {
         <html>
