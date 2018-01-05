@@ -133,7 +133,7 @@ class DrawingActorSupervisor extends PersistentActor with ActorLogging {
       log.debug(s"Found child for name: $uniqueActorName - Pass on command $cmd.")
       child.get ! cmd
     } else {
-      log.warning(s"No child found for name: $uniqueActorName - Do nothing.")
+      log.warning(s"No child found for name: $uniqueActorName - Do nothing. Can not send cmd: $cmd")
     }
   }
 }
