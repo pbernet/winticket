@@ -71,8 +71,10 @@ object SubscribeUsers {
           val status = new LookupMethod(apiKey, listId).run(eachRecord.head)
           if (status == "unsubscribed" || status == "pending" || status == "cleaned") {
             println(s"User: $eachRecord is in status: $status and thus will not be subscribed")
-          } else {
-            println(s"User: $eachRecord is on list. Update")
+          } else if (status == "subscribed") {
+            println(s"User: $eachRecord is already on list and thus will not be subscribed")
+          }  else  {
+            println(s"User: $eachRecord is not on list and thus will be subscribed")
             createOrUpdate(listId, eachRecord)
           }
         } catch {
