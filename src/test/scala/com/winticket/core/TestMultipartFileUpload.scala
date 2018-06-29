@@ -4,20 +4,20 @@ package com.winticket.core
 import java.io.File
 import java.nio.file.Paths
 
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.util.ByteString
-
-import scala.concurrent.duration._
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.FileInfo
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{FileIO, Source}
+import akka.stream.scaladsl.FileIO
+import akka.util.ByteString
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /**
@@ -28,7 +28,7 @@ import scala.util.{Failure, Success}
   * Current server implementations:
   * - upload: The original manual implementation from: https://gist.github.com/jrudolph/08d0d28e1eddcd64dbd0
   * - fileUpload: Use the akka-http fileUpload directive, but don't do streaming on the content as in: http://doc.akka.io/docs/akka-http/10.0.6/scala/http/routing-dsl/directives/file-upload-directives/fileUpload.html#fileupload
-  * - uploadedFile: Use the akka-http uploadedFile directive as in: http://doc.akka.io/docs/akka-http/10.0.6/scala/http/routing-dsl/directives/file-upload-directives/uploadedFile.html
+  * - storeUploadedFile: Use the akka-http storeUploadedFile directive
   */
 object TestMultipartFileUpload extends App {
 
@@ -101,17 +101,18 @@ object TestMultipartFileUpload extends App {
       }
     }
 
-    def uploadedFileDirectiveRoute = path("uploadedFileDirectiveRoute") {
-      uploadedFile("binary") {
-        case (metadata, file) =>
-          println(s"Successfully written ${file.length} bytes to: ${file.getPath}")
-          //TODO do sth with the file
-          file.delete()
+    def storeUploadedFileDirectiveRoute = path("storeUploadedFileDirectiveRoute") {
+      def tempDestination(fileInfo: FileInfo): File = File.createTempFile(fileInfo.fileName, ".tmp.server")
+
+      storeUploadedFile("binary", tempDestination) {
+        case (metadataFromClient: FileInfo, uploadedFile: File) =>
+          println(s"Server stored uploaded tmp file with name: ${uploadedFile.getName} (Metadata from client: $metadataFromClient)")
+          uploadedFile.delete()
           complete(StatusCodes.OK)
       }
     }
 
-    val route: Route = uploadRoute ~ fileUploadDirectiveRoute ~ uploadedFileDirectiveRoute
+    val route: Route = uploadRoute ~ fileUploadDirectiveRoute ~ storeUploadedFileDirectiveRoute
     Http().bindAndHandle(route, interface = "localhost", port = 0)
   }
 
@@ -140,7 +141,7 @@ object TestMultipartFileUpload extends App {
         ServerBinding(address) ← startTestServer()
         _ = println(s"Server up at $address")
         port = address.getPort
-        target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/uploadedFileDirectiveRoute"))
+        target = Uri(scheme = "http", authority = Uri.Authority(Uri.Host("localhost"), port = port), path = Uri.Path("/storeUploadedFileDirectiveRoute"))
         req ← createRequest(target, testFile)
         _ = println(s"Client running request, uploading test file of size ${testFile.length} bytes")
         response ← Http().singleRequest(req)

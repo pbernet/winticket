@@ -1,5 +1,6 @@
 package com.winticket.server
 
+import java.io.File
 import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -10,6 +11,7 @@ import akka.http.scaladsl.model.headers.CacheDirectives.{`must-revalidate`, `no-
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
+import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.{ExceptionHandler, Route, StandardRoute}
 import akka.stream.scaladsl.FileIO
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
@@ -198,7 +200,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     (post & extractRequest) {
       request =>
         {
-          //TODO Refactor this with uploadedFile directive as implemented below in uploadTest does not work with filedrop.js
+          //TODO Refactor this with storeUploadedFile directive as implemented below in uploadTest does not work with filedrop.js
           //since the uploadedFile directive asks for "fieldName", which is not present in the HTTP request
           //Maybe this is related to: https://github.com/akka/akka-http/issues/541
           val source = request.entity.dataBytes
@@ -225,17 +227,13 @@ trait WinticketService extends BaseService with DrawingAPI {
 
   private def uploadTest = path("uploadtest") {
 
-    (post & extractRequest) {
-      request =>
-        {
-          log.info(s"Received request $request")
-          uploadedFile("csv") {
-            case (metadata, file) =>
-              log.info(s"Received uploaded file: ${file.getName} with metadata: $metadata ")
-              file.delete()
-              complete(StatusCodes.OK)
-          }
-        }
+    def tempDestination(fileInfo: FileInfo): File = File.createTempFile(fileInfo.fileName, ".tmp.server")
+
+    storeUploadedFile("csv", tempDestination) {
+      case (metadataFromClient: FileInfo, uploadedFile: File) =>
+        println(s"Server stored uploaded tmp file with name: ${uploadedFile.getName} (Filename from client: ${metadataFromClient.fileName})")
+        uploadedFile.delete()
+        complete(StatusCodes.OK)
     }
   }
 
