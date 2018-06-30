@@ -2,7 +2,7 @@
 set -x
 
 # set the version label
-VERSION_LABEL=v101
+VERSION_LABEL=v110
 
 PKG=winticket_pkg
 
