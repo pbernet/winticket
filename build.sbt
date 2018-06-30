@@ -1,10 +1,9 @@
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
-
 import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "1.0.0"
+version       := "1.0.1"
 scalaVersion  := "2.12.4"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -13,8 +12,8 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.18"
-  val akkaV            = "2.5.8"
-  val akkaHttpV        = "10.0.10"
+  val akkaV            = "2.5.13"
+  val akkaHttpV        = "10.1.3"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.5"
   val scalaTestV       = "3.0.4"
