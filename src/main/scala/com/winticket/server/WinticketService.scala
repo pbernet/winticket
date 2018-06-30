@@ -18,6 +18,7 @@ import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingActorSupervisor.RemoveSubscription
 import com.winticket.server.GeoIPCheckerActor.IPCheckRecord
+import com.winticket.util.{DataLoaderHelper, RenderHelper}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -100,7 +101,7 @@ trait WinticketService extends BaseService with DrawingAPI {
     if (isEMailValid(commandORsubscriptionEMail)) {
       subscribe(tennantID, tennantYear, drawingEventID, commandORsubscriptionEMail, clientIP)
 
-      val minUri = Uri.from(path = "/confirm.html", queryString = Some(s"subscriptionEMail=$commandORsubscriptionEMail&drawingDays=$drawingDateDeltaDaysBackwards") )
+      val minUri = Uri.from(path = "/confirm.html", queryString = Some(s"subscriptionEMail=$commandORsubscriptionEMail&drawingDays=$drawingDateDeltaDaysBackwards"))
       redirect(minUri, StatusCodes.Found)
     } else {
       complete {
@@ -213,7 +214,7 @@ trait WinticketService extends BaseService with DrawingAPI {
           complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
       }
     }
-    }
+  }
 
   private def uploadTest = path("uploadtest") {
 
