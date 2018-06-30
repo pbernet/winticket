@@ -3,7 +3,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "1.1.0"
+version       := "1.2.6"
 scalaVersion  := "2.12.4"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -65,7 +65,7 @@ dockerBaseImage := "java:8-jre"
 daemonUser in Docker := "root"
 dockerExposedPorts := Seq(9000)
 dockerEntrypoint := Seq(
-  "bin/winticket",
+  "bin/winticket-microservice-main",
   "-Dconfig.resource=/production.conf")
 
 defaultLinuxInstallLocation in Docker := "/var/app/current"

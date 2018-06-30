@@ -2,20 +2,20 @@
 set -x
 
 # set the version label
-VERSION_LABEL=v110
+VERSION_LABEL=v126
 
 PKG=winticket_pkg
 
 # Build the docker image
+sbt clean
 sbt docker:stage
 
-# TODO Is this workaround still needed: Currently the generated  ./target/Docker/Dockerfile needs to be patched when deployed on aws: Replace this line
-# Produces: COPY stage /
-sed -i '' '4s/.*/COPY stage \//' ./target/Docker/Dockerfile
-# Remove misplaced file
-rm -f  ./target/docker/stage/Dockerfile
+# Patch Dockerfile for deployment to AWS
+# Insert 'COPY stage /' on line 4
+sed -i '' '4s/.*/COPY stage \//' ./target/docker/stage/Dockerfile
+mv ./target/docker/stage/Dockerfile ./target/docker
 
-# Copy Dockerrun.aws.json to target/docker
+# Copy Dockerrun.aws.json to ./target/docker
 cp Dockerrun.aws.json ./target/docker
 
 # Zip the files
