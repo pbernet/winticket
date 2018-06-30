@@ -1,100 +1,133 @@
 <!DOCTYPE html>
-<html>
+<!-- Stolen from https://html5demos.com/dnd-upload - Made for pics, Upload progress is not relevant for us  -->
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Winticket admin</title>
+    <meta charset="UTF-8">
+    <title>Winticket admin upload</title>
 
-    <script type="text/javascript" src="../../js/filedrop.js"></script>
-
-    <style type="text/css">
-        /***
-        Styles below are only required if you're using <iframe> fallback in
-        addition to HTML5 drag & drop (only working in Firefox/Chrome).
-        ***/
-
-        /* Essential FileDrop zone element configuration: */
-        .fd-zone {
-        position: relative;
-        overflow: hidden;
-        /* The following are not required but create a pretty box: */
-        width: 15em;
-        margin: 0 auto;
-        text-align: center;
-        }
-
-        /* Hides <input type="file"> while simulating "Browse" button: */
-        .fd-file {
-        opacity: 0;
-        font-size: 118px;
-        position: absolute;
-        right: 0;
-        top: 0;
-        z-index: 1;
-        padding: 0;
-        margin: 0;
-        cursor: pointer;
-        filter: alpha(opacity=0);
-        font-family: sans-serif;
-        }
-
-        /* Provides visible feedback when use drags a file over the drop zone: */
-        .fd-zone.over { border-color: maroon; background: #eee; }
+    <style>
+        #holder { border: 10px dashed #ccc; width: 300px; min-height: 300px; margin: 20px auto;}
+        #holder.hover { border: 10px dashed #0c0; }
+        #holder img { display: block; margin: 10px auto; }
+        #holder p { margin: 10px; font-size: 14px; }
+        progress { width: 100%; }
+        progress:after { content: '%'; }
+        .fail { background: #c00; padding: 2px; color: #fff; }
+        .hidden { display: none !important;}
     </style>
 </head>
+
 <body>
-<noscript style="color: maroon">
-    <h2>JavaScript is disabled in your browser. How do you expect FileDrop to work?</h2>
-</noscript>
+<article>
+    <div id="holder">
+    </div>
+    <p id="upload" class="hidden"><label>Drag & drop not supported, but you can still upload via this input field:<br><input type="file"></label></p>
+    <p id="filereader">File API & FileReader API not supported</p>
+    <p id="formdata">XHR2's FormData is not supported</p>
+    <p id="progress">XHR2's upload progress isn't supported</p>
+    <p>Upload progress: <progress id="uploadprogress" max="100" value="0">0</progress></p>
+    <p>Drag a Winticket data file (in csv format) from your desktop on to the drop zone above</p>
+</article>
 
-<h2 style="text-align: center">
-    Admin: Upload events file
-</h2>
+<script>
+    var holder = document.getElementById('holder'),
+        tests = {
+            filereader: typeof FileReader != 'undefined',
+            dnd: 'draggable' in document.createElement('span'),
+            formdata: !!window.FormData,
+            progress: "upload" in new XMLHttpRequest
+        },
+        support = {
+            filereader: document.getElementById('filereader'),
+            formdata: document.getElementById('formdata'),
+            progress: document.getElementById('progress')
+        },
+        acceptedTypes = {
+            'image/png': true,
+            'image/jpeg': true,
+            'image/gif': true
+        },
+        progress = document.getElementById('uploadprogress'),
+        fileupload = document.getElementById('upload');
 
-<!-- A FileDrop area. Can contain any text or elements, or be empty.
-     Can be of any HTML tag too, not necessary fieldset. -->
-<fieldset id="zone">
-    <legend>Drop a file inside&hellip;</legend>
-    <p>Or click here to <em>Browse</em>..</p>
+    "filereader formdata progress".split(' ').forEach(function (api) {
+        if (tests[api] === false) {
+            support[api].className = 'fail';
+        } else {
+            // FFS. I could have done el.hidden = true, but IE doesn't support
+            // hidden, so I tried to create a polyfill that would extend the
+            // Element.prototype, but then IE10 doesn't even give me access
+            // to the Element object. Brilliant.
+            support[api].className = 'hidden';
+        }
+    });
 
-    <!-- Putting another element on top of file input so it overlays it
-         and user can interact with it freely. -->
-    <p style="z-index: 10; position: relative">
-        <input type="checkbox" id="multiple">
-        <label for="multiple">Allow multiple selection</label>
-    </p>
-</fieldset>
+    function previewfile(file) {
+        if (tests.filereader === true && acceptedTypes[file.type] === true) {
+            var reader = new FileReader();
+            reader.onload = function (event) {
+                var image = new Image();
+                image.src = event.target.result;
+                image.width = 250; // a fake resize
+                holder.appendChild(image);
+            };
 
-<script type="text/javascript">
-      // Tell FileDrop we can deal with iframe uploads using this URL:
-      var options = {iframe: {url: 'upload.php'}};
-      // Attach FileDrop to an area ('zone' is an ID but you can also give a DOM node):
-      var zone = new FileDrop('zone', options);
+            reader.readAsDataURL(file);
+        }  else {
+            holder.innerHTML += '<p>Uploaded ' + file.name + ' ' + (file.size ? (file.size/1024|0) + 'K' : '');
+            console.log(file);
+        }
+    }
 
-      // Do something when a user chooses or drops a file:
-      zone.event('send', function (files) {
-        // Depending on browser support files (FileList) might contain multiple items.
-        files.each(function (file) {
-          // React on successful AJAX upload:
-          file.event('done', function (xhr) {
-            // 'this' here points to fd.File instance that has triggered the event.
-            alert('Done uploading ' + this.name + ', response:\n\n' + xhr.responseText);
-          });
+    function readfiles(files) {
+        //debugger;
+        var formData = tests.formdata ? new FormData() : null;
+        for (var i = 0; i < files.length; i++) {
+            if (tests.formdata) formData.append('file', files[i]);
+            previewfile(files[i]);  //TO show the filename on completion
+        }
 
-          // Send the file:
-          file.sendTo('../../uploaddata');
-        });
-      });
+        // now post a new XHR request
+        if (tests.formdata) {
+            var xhr = new XMLHttpRequest();
 
-      // React on successful iframe fallback upload (this is separate mechanism
-      // from proper AJAX upload hence another handler):
-      zone.event('iframeDone', function (xhr) {
-        alert('Done uploading via <iframe>, response:\n\n' + xhr.responseText);
-      });
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    alert(this.responseText)
+                }
+            };
+            xhr.open('POST', '../../uploaddata');
+            xhr.onload = function() {
+                progress.value = progress.innerHTML = 100;
+            };
 
-      // A bit of sugar - toggling multiple selection:
-      fd.addEvent(fd.byID('multiple'), 'change', function (e) {
-        zone.multiple(e.currentTarget || e.srcElement.checked);
-      });
-    </script>
+            if (tests.progress) {
+                xhr.upload.onprogress = function (event) {
+                    if (event.lengthComputable) {
+                        var complete = (event.loaded / event.total * 100 | 0);
+                        progress.value = progress.innerHTML = complete;
+                    }
+                }
+            }
+
+            xhr.send(formData);
+        }
+    }
+
+    if (tests.dnd) {
+        holder.ondragover = function () { this.className = 'hover'; return false; };
+        holder.ondragend = function () { this.className = ''; return false; };
+        holder.ondrop = function (e) {
+            this.className = '';
+            e.preventDefault();
+            readfiles(e.dataTransfer.files);
+        }
+    } else {
+        fileupload.className = 'hidden';
+        fileupload.querySelector('input').onchange = function () {
+            readfiles(this.files);
+        };
+    }
+</script>
 </body>
 </html>
