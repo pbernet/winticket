@@ -1,7 +1,6 @@
 package com.winticket.server
 
 import java.io.File
-import java.nio.file.{Path, Paths}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport._
@@ -13,14 +12,12 @@ import akka.http.scaladsl.server.PathMatchers.IntNumber
 import akka.http.scaladsl.server.directives.Credentials.{Missing, Provided}
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.{ExceptionHandler, Route, StandardRoute}
-import akka.stream.scaladsl.FileIO
 import com.github.marklister.collections.io.{CsvParser, GeneralConverter}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.winticket.core.BaseService
 import com.winticket.server.DrawingActor._
 import com.winticket.server.DrawingActorSupervisor.RemoveSubscription
 import com.winticket.server.GeoIPCheckerActor.IPCheckRecord
-import com.winticket.util.{DataLoaderHelper, RenderHelper}
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -197,33 +194,26 @@ trait WinticketService extends BaseService with DrawingAPI {
    * This approach allows for easier conversion CSV -> CreateDrawing at the cost of having the data in memory
    */
   private def uploadRoute = path("uploaddata") {
-    (post & extractRequest) {
-      request =>
-        {
-          //TODO Refactor this with storeUploadedFile directive as implemented below in uploadTest does not work with filedrop.js
-          //since the uploadedFile directive asks for "fieldName", which is not present in the HTTP request
-          //Maybe this is related to: https://github.com/akka/akka-http/issues/541
-          val source = request.entity.dataBytes
-          val outFile: Path = Paths.get("/tmp/outfile.dat")
-          val sink = FileIO.toPath(outFile)
-          val replyFuture = source.runWith(sink).map(x => s"Finished uploading $x bytes!")
+    (post) {
+      def tempDestination(fileInfo: FileInfo): File = File.createTempFile(fileInfo.fileName, ".tmp.server")
 
-          onSuccess(replyFuture) { replyMsg =>
+      storeUploadedFile("file", tempDestination) {
+        case (metadataFromClient: FileInfo, uploadedFile: File) =>
+          log.info(s"Server stored uploaded tmp file with name: ${uploadedFile.getName} (Filename from client: ${metadataFromClient.fileName})")
 
-            //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
-            implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
+          //Convert directly to akka DataTime. The failure case looks like this: Failure(java.lang.IllegalArgumentException: None.get at line x)
+          implicit val DateConverter: GeneralConverter[DateTime] = new GeneralConverter(DateTime.fromIsoDateTimeString(_).get)
 
-            val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(outFile.toFile), hasHeader = true)).toList
-            val convertStatus = aListOfDrawingEventsTry.map {
-              case Success(content) =>
-                createDrawing(content); s"\nOK ${content.drawingEventID} - ${content.drawingEventName}"
-              case Failure(f) => log.error(f.getMessage); s"\nERROR while converting: ${f.getMessage}"
-            }
-            complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
+          val aListOfDrawingEventsTry = new TryIterator(CsvParser(CreateDrawing).iterator(DataLoaderHelper.readFromFile(uploadedFile), hasHeader = true)).toList
+          val convertStatus = aListOfDrawingEventsTry.map {
+            case Success(content) =>
+              createDrawing(content); s"\nOK ${content.drawingEventID} - ${content.drawingEventName}"
+            case Failure(f) => log.error(f.getMessage); s"\nERROR while converting: ${f.getMessage}"
           }
-        }
+          complete(HttpResponse(status = StatusCodes.OK, entity = convertStatus.mkString("\n")))
+      }
     }
-  }
+    }
 
   private def uploadTest = path("uploadtest") {
 
@@ -231,7 +221,7 @@ trait WinticketService extends BaseService with DrawingAPI {
 
     storeUploadedFile("csv", tempDestination) {
       case (metadataFromClient: FileInfo, uploadedFile: File) =>
-        println(s"Server stored uploaded tmp file with name: ${uploadedFile.getName} (Filename from client: ${metadataFromClient.fileName})")
+        log.info(s"Server stored uploaded tmp file with name: ${uploadedFile.getName} (Filename from client: ${metadataFromClient.fileName})")
         uploadedFile.delete()
         complete(StatusCodes.OK)
     }
