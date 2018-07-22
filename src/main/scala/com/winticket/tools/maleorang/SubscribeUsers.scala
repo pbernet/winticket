@@ -15,34 +15,34 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Bulk import users to MailChimp via the REST API
-  * The csv file is in format:
-  * valid.email@xxxx.com,firstname,lastname
-  * valid.email2@xxxx.com,firstname2,lastname2
-  * //last line do not remove
-  *
-  * This is an alternative to the bulk import via Admin GUI:
-  * https://kb.mailchimp.com/lists/growth/import-subscribers-to-a-list
-  *
-  */
+ * Bulk import users to MailChimp via the REST API
+ * The csv file is in format:
+ * valid.email@xxxx.com,firstname,lastname
+ * valid.email2@xxxx.com,firstname2,lastname2
+ * //last line do not remove
+ *
+ * This is an alternative to the bulk import via Admin GUI:
+ * https://kb.mailchimp.com/lists/growth/import-subscribers-to-a-list
+ *
+ */
 object SubscribeUsers {
   implicit val system = ActorSystem()
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val apiKey = "***"
-  val listId = "***"
+  val apiKey = "eeadae5cf932035bf6fd90acab6da4a2-us13"
+  val listId = "426c6e198f"
 
-  val pathToCSV = "/path/to/file.csv"
+  val pathToCSV = "/Users/pbernetold/Desktop/gf_newsletter_canditates.csv"
   val client = new MailchimpClient(apiKey)
 
   val emailRegex = """^[a-zA-Z0-9\.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$""".r
 
   private def isEMailValid(e: String): Boolean = e match {
-    case null => false
-    case `e` if e.trim.isEmpty => false
+    case null                                            => false
+    case `e` if e.trim.isEmpty                           => false
     case `e` if emailRegex.findFirstMatchIn(e).isDefined => true
-    case _ => false
+    case _                                               => false
   }
 
   def main(args: Array[String]): Unit = {
@@ -55,39 +55,39 @@ object SubscribeUsers {
       try {
         client.close()
         system.terminate()
-      }
-      catch {
+      } catch {
         case e: IOException => e.printStackTrace()
       }
     }
   }
 
   private def subscribeTo(listId: String) = {
-    eachRecord: Seq[String] => {
-      val email = eachRecord.head
-      if (isEMailValid(email) && eachRecord.length == 3) {
-        println(s"About to subscribe: $email with correct length: ${eachRecord.length}")
-        try {
-          val status = new LookupMethod(apiKey, listId).run(eachRecord.head)
-          if (status == "unsubscribed" || status == "pending" || status == "cleaned") {
-            println(s"User: $eachRecord is in status: $status and thus will not be subscribed")
-          } else if (status == "subscribed") {
-            println(s"User: $eachRecord is already on list and thus will not be subscribed")
-          }  else  {
-            println(s"User: $eachRecord is not on list and thus will be subscribed")
-            createOrUpdate(listId, eachRecord)
+    eachRecord: Seq[String] =>
+      {
+        val email = eachRecord.head
+        if (isEMailValid(email) && eachRecord.length == 3) {
+          println(s"About to subscribe: $email with correct length: ${eachRecord.length}")
+          try {
+            val status = new LookupMethod(apiKey, listId).run(eachRecord.head)
+            if (status == "unsubscribed" || status == "pending" || status == "cleaned") {
+              println(s"User: $eachRecord is in status: $status and thus will not be subscribed")
+            } else if (status == "subscribed") {
+              println(s"User: $eachRecord is already on list and thus will not be subscribed")
+            } else {
+              println(s"User: $eachRecord is not on list and thus will be subscribed")
+              createOrUpdate(listId, eachRecord)
+            }
+          } catch {
+            case e: MailchimpException if e.code == 404 => {
+              println(s"User: $eachRecord is not on list. Subscribe")
+              createOrUpdate(listId, eachRecord)
+            }
+            case e: RuntimeException => e.printStackTrace()
           }
-        } catch {
-          case e: MailchimpException if e.code == 404 => {
-            println(s"User: $eachRecord is not on list. Subscribe")
-            createOrUpdate(listId, eachRecord)
-          }
-          case e: RuntimeException => e.printStackTrace()
+        } else {
+          println(s"$eachRecord does not contain a valid EMail Address OR metadata is not provided, proceed")
         }
-      } else {
-        println(s"$eachRecord does not contain a valid EMail Address OR metadata is not provided, proceed")
       }
-    }
   }
 
   private def createOrUpdate(listId: String, eachRecord: Seq[String]) = {
@@ -97,6 +97,6 @@ object SubscribeUsers {
     createOrUpdate.merge_fields.mapping.put("FNAME", eachRecord(1))
     createOrUpdate.merge_fields.mapping.put("LNAME", eachRecord(2))
     val member = client.execute(createOrUpdate)
-    System.out.println(s"The user: $eachRecord has been successfully created/updated: $member")
+    println(s"The user: $eachRecord has been successfully created/updated: $member")
   }
 }
