@@ -30,10 +30,10 @@ object SubscribeUsers {
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val apiKey = "eeadae5cf932035bf6fd90acab6da4a2-us13"
-  val listId = "426c6e198f"
+  val apiKey = "***"
+  val listId = "***"
 
-  val pathToCSV = "/Users/pbernetold/Desktop/gf_newsletter_canditates.csv"
+  val pathToCSV = "/path/to/file.csv"
   val client = new MailchimpClient(apiKey)
 
   val emailRegex = """^[a-zA-Z0-9\.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$""".r
