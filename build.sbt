@@ -3,7 +3,7 @@ import scalariform.formatter.preferences._
 
 name          := """winticket"""
 organization  := "com.winticket"
-version       := "1.2.6"
+version       := "1.2.7"
 scalaVersion  := "2.12.4"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
@@ -12,8 +12,9 @@ scalacOptions := Seq(
 
 libraryDependencies ++= {
   val scalazV          = "7.2.18"
-  val akkaV            = "2.5.13"
-  val akkaHttpV        = "10.1.3"
+  val akkaV            = "2.5.22"
+  val akkaHttpV        = "10.1.8"
+  val alpakkaVersion   = "1.0.2"
   val apacheMailV      = "1.2"
   val productCollV     = "1.4.5"
   val scalaTestV       = "3.0.4"
@@ -27,6 +28,7 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-spray-json"                 % akkaHttpV,
     "com.typesafe.akka" %% "akka-slf4j"                           % akkaV,
     "ch.qos.logback"     % "logback-classic"                      % "1.2.3",
+    "com.lightbend.akka" %% "akka-stream-alpakka-xml"             % alpakkaVersion,
 
     "com.typesafe.akka" %% "akka-persistence"                     % akkaV,
     //TODO Only one of those two needs to be used
