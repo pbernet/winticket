@@ -18,9 +18,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
-  * Bulk create campaigns via the MailChimp REST API
-  *
-  */
+ * Bulk create campaigns via the MailChimp REST API
+ *
+ */
 object PrepareCampaigns {
   implicit val system = ActorSystem()
   implicit val ec = system.dispatcher
@@ -41,7 +41,7 @@ object PrepareCampaigns {
       .map(_.utf8String.split(",").toVector)
       .throttle(2, 1.second, 5, ThrottleMode.shaping)
       .runForeach(prepareCampaign(masterCampaignId))
-    closed.onComplete { each =>
+    closed.onComplete { _ =>
       try {
         client.close()
         system.terminate()
@@ -52,58 +52,54 @@ object PrepareCampaigns {
   }
 
   private def prepareCampaign(masterCampainId: String) = {
-    eachRecord: Seq[String] => {
-      if (eachRecord(0) != "tennantID") {
+    eachRecord: Seq[String] =>
+      {
+        if (eachRecord.head != "tennantID") {
 
+          val tennantYear = eachRecord(1)
+          val drawingEventID = eachRecord(3)
+          val drawingEventNameHead = eachRecord(4).split("-").head
+          val drawingEventDate = eachRecord(5)
+          println(s"About to create campaign for drawingEventID: $drawingEventID")
+          val campaignActionMethod = new CampaignActionMethod.Replicate(masterCampainId)
+          val campaignActionMethodResponse: CampaignInfo = client.execute(campaignActionMethod)
+          val newCampaignId = campaignActionMethodResponse.id
+          println(s"Created new campaign with ID: $newCampaignId and content_type: ${campaignActionMethodResponse.content_type}")
 
-        val tennantYear = eachRecord(1)
-        val drawingEventID = eachRecord(3)
-        val drawingEventNameHead = eachRecord(4).split("-").head
-        val drawingEventDate = eachRecord(5)
-        println(s"About to create campaign for drawingEventID: $drawingEventID")
-        val campaignActionMethod = new CampaignActionMethod.Replicate(masterCampainId)
-        val campaignActionMethodResponse: CampaignInfo = client.execute(campaignActionMethod)
-        val newCampaignId = campaignActionMethodResponse.id
-        println(s"Created new campaign with ID: $newCampaignId and content_type: ${campaignActionMethodResponse.content_type}")
+          val editCampaignMethod = new EditCampaignMethod.Update(newCampaignId)
+          val deLocale = new Locale("de", "DE")
+          val localDate = LocalDateTime.parse(drawingEventDate)
+          val formatter = DateTimeFormatter.ofPattern("EEEE, dd. MMMM HH.mm", deLocale)
+          val formattedDate = localDate.format(formatter)
+          val subject = s"$drawingEventNameHead am $formattedDate"
+          val editableSettings = campaignActionMethodResponse.settings
+          editableSettings.subject_line = subject
+          editableSettings.title = s"PROD_${tennantYear}_$drawingEventID $drawingEventNameHead"
+          editableSettings.template_id = templateId
+          editCampaignMethod.settings = editableSettings
+          val editCampaignMethodResponse = client.execute(editCampaignMethod)
+          println(s"Updated campaign with ID: $newCampaignId and drawingEventID: $drawingEventID. content_type: ${editCampaignMethodResponse.content_type}")
 
-
-        val editCampaignMethod = new EditCampaignMethod.Update(newCampaignId)
-        val deLocale = new Locale("de", "DE")
-        val localDate = LocalDateTime.parse(drawingEventDate)
-        val formatter = DateTimeFormatter.ofPattern("EEEE, dd. MMMM HH.mm", deLocale)
-        val formattedDate = localDate.format(formatter)
-        val subject = s"$drawingEventNameHead am $formattedDate"
-        val editableSettings = campaignActionMethodResponse.settings
-        editableSettings.subject_line = subject
-        editableSettings.title = s"PROD_${tennantYear}_$drawingEventID $drawingEventNameHead"
-        editableSettings.template_id = templateId
-        editCampaignMethod.settings = editableSettings
-        val editCampaignMethodResponse = client.execute(editCampaignMethod)
-        println(s"Updated campaign with ID: $newCampaignId and drawingEventID: $drawingEventID. content_type: ${editCampaignMethodResponse.content_type}")
-
-
-
-        //http://developer.mailchimp.com/documentation/mailchimp/reference/campaigns/content
-        //Does not work because content_type ‘template’ does not allow content replacement
-        //Needs to be ‘html’ but this can only set in GUI...
-        //        val getCampaignContentMethod = new GetCampaignContentMethod(newCampaignId)
-        //        val getCampaignContentMethodResponse = client.execute(getCampaignContentMethod)
-        //        println("html content: " + getCampaignContentMethodResponse.html)
-        //
-        //
-        //        val setSetCampaignContentMethod =  new SetCampaignContentMethod(newCampaignId)
-        //        val template = new Template
-        //        template.id = templateId
-        //        val content: java.util.Map[String, String]= new util.HashMap()
-        //        content.put("xxx", "DYNAMIC VALUE1")
-        //        template.sections = content
-        //        setSetCampaignContentMethod.template = template
-        //        setSetCampaignContentMethod.html = getCampaignContentMethodResponse.html.replace("Desperados" , "xxxx")
-        //        val setSetCampaignContentMethodResponse = client.execute(setSetCampaignContentMethod)
+          // http://developer.mailchimp.com/documentation/mailchimp/reference/campaigns/content
+          // Does not work because content_type ‘template’ does not allow content replacement
+          // Needs to be ‘html’ but this can only set in GUI, what a pity
+          //        val getCampaignContentMethod = new GetCampaignContentMethod(newCampaignId)
+          //        val getCampaignContentMethodResponse = client.execute(getCampaignContentMethod)
+          //        println("html content: " + getCampaignContentMethodResponse.html)
+          //
+          //
+          //        val setSetCampaignContentMethod =  new SetCampaignContentMethod(newCampaignId)
+          //        val template = new Template
+          //        template.id = templateId
+          //        val content: java.util.Map[String, String]= new util.HashMap()
+          //        content.put("xxx", "DYNAMIC VALUE1")
+          //        template.sections = content
+          //        setSetCampaignContentMethod.template = template
+          //        setSetCampaignContentMethod.html = getCampaignContentMethodResponse.html.replace("Desperados" , "xxxx")
+          //        val setSetCampaignContentMethodResponse = client.execute(setSetCampaignContentMethod)
+        } else {
+          // do nothing because it is the 1st line in the csv
+        }
       }
-      else {
-        //do nothing because it is the 1st line in the csv
-      }
-    }
   }
 }

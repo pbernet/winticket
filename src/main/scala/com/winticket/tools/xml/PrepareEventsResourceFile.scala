@@ -18,17 +18,17 @@ import scala.concurrent.Future
 import scala.util.Try
 
 /**
-  * Parse DB export XML file
-  * and generate events resource csv file
-  *
-  */
+ * Parse DB export XML file and
+ * generate events resource csv file
+ *
+ */
 
 object PrepareEventsResourceFile {
   implicit val system = ActorSystem("PrepareEventsResourceFile")
   implicit val executionContext = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val pathToXML = "/projects/scala_activator/activator-dist-1.3.5/winticket/data/events_export_2019.xml"
+  val pathToXML = "/Users/Shared/projects/winticket/data/events_export_herbst_2021.xml"
 
   def main(args: Array[String]): Unit = {
     val fileContentsWithRemovedComments = scala.io.Source.fromFile(pathToXML).getLines.mkString.replaceAll("(?s)<!--.*?-->", "")
@@ -65,21 +65,22 @@ object PrepareEventsResourceFile {
         val currentYear = DateTime.now.year
         val fw = new FileWriter(s"events_production_$currentYear.csv")
         val sw = new StringWriter
-        val tennantID =  "gruenfels"
+        val tenantID = "gruenfels"
 
         results.get.sliding(17, 17).foreach { each =>
 
           val date = DateTime.fromIsoDateTimeString(each(3).toString.replace(" ", "T")).get
           val eventNameTitle = each(1).toString + " - " + each(2).toString.replaceAll("\"", "").stripPrefix("«").stripSuffix("»")
 
-          val createDrawing = CreateDrawing(tennantID, currentYear, s"winticket@$tennantID.ch", each(0).toString, eventNameTitle , date, "xxx", "-")
+          val createDrawing = CreateDrawing(tenantID, currentYear, s"winticket@$tenantID.ch", each.head.toString, eventNameTitle, date, "xxx", "-")
 
           CollSeq(Vector(createDrawing)).writeCsv(sw)
-          println(each)}
+          println(each)
+        }
         fw.write(sw.toString)
-        fw.close
+        fw.close()
 
-        println("Flow completed, about to terminate")
+        println("Written Flow completed, about to terminate")
         system.terminate()
     }
   }
