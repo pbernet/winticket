@@ -1,23 +1,27 @@
 package com.winticket.server
 
-import akka.actor.ActorSystem
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.typesafe.config.ConfigFactory
 
 import scala.collection.immutable.SortedMap
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 case class ResultWrapper(req: HttpResponse, ctx: Any)
+
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model._
+import akka.stream.ActorMaterializer
+
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 /**
  * Rest client dispatcher using an Akka http "host level" pooled connection to make the requests
  * Doc http://doc.akka.io/docs/akka-http/current/scala/http/client-side/host-level.html
+ *
  * @param address The target server's address
  * @param port The target server's port
  * @param poolSettings Settings for this particular connection pool - override defaults in application.conf under
@@ -50,10 +54,13 @@ case class RestClient(address: String, port: Int, poolSettings: ConnectionPoolSe
   /**
    * Execute a single request using the connection pool.
    * @param req An HttpRequest
-   * @param context A object of type Any, which is recieved when the answer returns
-   * @return A ResultWrapper which can be matched in the actor
+   * @param context A object of type Any, which is received when the answer returns
+   * @return A ResultWrapper, which can be matched in the actor
    */
   def execTyped[F <: Any](req: HttpRequest, context: F): Future[ResultWrapper] = {
+
+    // Hmm this is considered an anti-pattern theses days...
+    // see: https://doc.akka.io/docs/akka-http/current/client-side/host-level.html?language=scala#retrying-a-request
     Source.single(req -> context)
       .via(poolAny)
       .runWith(Sink.head).flatMap {
