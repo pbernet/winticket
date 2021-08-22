@@ -19,8 +19,9 @@ project/plugins/project/
 
 # winticket specific
 production.conf
-events_production.csv
-aws_rootkey.csv
+*.csv
+data/*
+
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
