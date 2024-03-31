@@ -4,7 +4,7 @@ import scalariform.formatter.preferences._
 name          := """winticket"""
 organization  := "com.winticket"
 version       := "1.2.7"
-scalaVersion  := "2.12.4"
+scalaVersion  := "2.12.17"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
   "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
@@ -50,8 +50,12 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-testkit"                    % akkaHttpV        % "it,test",
     //needed for experimental ScalaTest/Gatling integration for REST API Testing
     "io.gatling" % "gatling-test-framework" % "2.3.0" % "it, test",
-    //MailChimp API
-    "com.ecwid" %	"maleorang" %	"3.0-0.9.6"
+    //MailChimp API, not maintained anymore...
+    "com.ecwid" %	"maleorang" %	"3.0-0.9.6",
+    "org.apache.commons" % "commons-text" % "1.11.0",
+    "io.circe" %% "circe-core" % "0.14.6",
+    "io.circe" %% "circe-generic" % "0.14.6",
+    "io.circe" %% "circe-parser" % "0.14.6"
   )
 }
 

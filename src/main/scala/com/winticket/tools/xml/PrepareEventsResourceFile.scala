@@ -21,6 +21,8 @@ import scala.util.Try
  * Parse DB export XML file and
  * generate events resource csv file
  *
+ * Not used anymore with new DB
+ *
  */
 
 object PrepareEventsResourceFile {
@@ -28,7 +30,7 @@ object PrepareEventsResourceFile {
   implicit val executionContext = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val pathToXML = "/Users/Shared/projects/winticket/data/events_export_herbst_2021.xml"
+  val pathToXML = "/Users/Shared/projects/winticket/data/events_export_herbst_2023.xml"
 
   def main(args: Array[String]): Unit = {
     val fileContentsWithRemovedComments = scala.io.Source.fromFile(pathToXML).getLines.mkString.replaceAll("(?s)<!--.*?-->", "")
@@ -62,8 +64,10 @@ object PrepareEventsResourceFile {
     result.onComplete {
       results: Try[immutable.Seq[String]] =>
 
-        val currentYear = DateTime.now.year
-        val fw = new FileWriter(s"events_production_$currentYear.csv")
+        //val currentYear = DateTime.now.year
+        val currentYear = 2023
+        val filename = s"events_production_$currentYear.csv"
+        val fw = new FileWriter(filename)
         val sw = new StringWriter
         val tenantID = "gruenfels"
 
@@ -80,7 +84,7 @@ object PrepareEventsResourceFile {
         fw.write(sw.toString)
         fw.close()
 
-        println("Written Flow completed, about to terminate")
+        println(s"Written data to $filename completed, about to terminate")
         system.terminate()
     }
   }
