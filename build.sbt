@@ -1,10 +1,7 @@
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
-import scalariform.formatter.preferences._
-
 name          := """winticket"""
 organization  := "com.winticket"
 version       := "1.2.7"
-scalaVersion  := "2.12.17"
+scalaVersion  := "2.12.19"
 scalacOptions := Seq(
   "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
   "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
@@ -61,7 +58,6 @@ libraryDependencies ++= {
 
 lazy val root = project.in(file(".")).configs(IntegrationTest)
 Defaults.itSettings
-scalariformSettings
 Revolver.settings
 enablePlugins(JavaAppPackaging)
 enablePlugins(GatlingPlugin)
@@ -80,11 +76,6 @@ dockerExposedVolumes := Seq("/var/app/current/stage/opt/docker/target/winticket/
 //needed for experimental ScalaTest/Gatling integration for REST API Testing
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-ScalariformKeys.preferences := ScalariformKeys.preferences.value
-  .setPreference(AlignSingleLineCaseStatements, true)
-  .setPreference(AlignSingleLineCaseStatements.MaxArrowIndent, 100)
-  .setPreference(DoubleIndentClassDeclaration, true)
-  .setPreference(SpacesAroundMultiImports, false)
 
 initialCommands := """|import scalaz._
                      |import Scalaz._
